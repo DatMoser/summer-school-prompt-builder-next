@@ -12,6 +12,8 @@ interface SettingsModalProps {
   currentService: string;
   onServiceChange: (service: string) => void;
   onApiKeyUpdate?: (apiKey: string | null) => void;
+  onYouTubeApiKeyUpdate?: (apiKey: string | null) => void;
+  onResetStorage?: () => void;
 }
 
 export default function SettingsModal({ 
@@ -19,16 +21,23 @@ export default function SettingsModal({
   onOpenChange, 
   currentService, 
   onServiceChange,
-  onApiKeyUpdate
+  onApiKeyUpdate,
+  onYouTubeApiKeyUpdate,
+  onResetStorage
 }: SettingsModalProps) {
   const [selectedService, setSelectedService] = useState(currentService);
   const [useCustomApiKey, setUseCustomApiKey] = useState(false);
   const [customApiKey, setCustomApiKey] = useState('');
+  const [useCustomYouTubeApiKey, setUseCustomYouTubeApiKey] = useState(false);
+  const [customYouTubeApiKey, setCustomYouTubeApiKey] = useState('');
 
   const handleSave = () => {
     onServiceChange("gemini"); // Always use Gemini as the only service
     if (onApiKeyUpdate) {
       onApiKeyUpdate(useCustomApiKey && customApiKey.trim() ? customApiKey.trim() : null);
+    }
+    if (onYouTubeApiKeyUpdate) {
+      onYouTubeApiKeyUpdate(useCustomYouTubeApiKey && customYouTubeApiKey.trim() ? customYouTubeApiKey.trim() : null);
     }
     onOpenChange(false);
   };
@@ -37,7 +46,16 @@ export default function SettingsModal({
     setSelectedService(currentService);
     setUseCustomApiKey(false);
     setCustomApiKey('');
+    setUseCustomYouTubeApiKey(false);
+    setCustomYouTubeApiKey('');
     onOpenChange(false);
+  };
+
+  const handleResetStorage = () => {
+    if (confirm('Are you sure you want to reset all pipeline data? This will clear all your configurations, connections, and saved data. This action cannot be undone.')) {
+      onResetStorage?.();
+      onOpenChange(false);
+    }
   };
 
   return (
@@ -103,6 +121,78 @@ export default function SettingsModal({
                 </p>
               )}
             </div>
+          </div>
+
+          {/* YouTube API Key Configuration - For Future Use */}
+          <div className="border-t border-gray-600 pt-4">
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-gray-300">
+                YouTube Data API v3 Configuration (Future Use)
+              </Label>
+              
+              <div className="bg-amber-500/10 border border-amber-400/20 rounded p-3">
+                <p className="text-xs text-amber-300">
+                  ⚠️ YouTube transcript functionality requires complex OAuth2 setup and is currently not implemented. 
+                  This field is provided for future development.
+                </p>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="use-custom-youtube-key"
+                  checked={useCustomYouTubeApiKey}
+                  onCheckedChange={(checked) => setUseCustomYouTubeApiKey(checked as boolean)}
+                />
+                <Label htmlFor="use-custom-youtube-key" className="text-sm text-gray-300 cursor-pointer">
+                  Configure YouTube API credentials
+                </Label>
+              </div>
+              
+              {useCustomYouTubeApiKey && (
+                <div className="space-y-2">
+                  <Label htmlFor="youtube-api-key" className="text-sm text-gray-400">
+                    YouTube Data API v3 Key (Service Account JSON or OAuth2 Token)
+                  </Label>
+                  <Input
+                    id="youtube-api-key"
+                    type="password"
+                    placeholder="Enter credentials for future implementation..."
+                    value={customYouTubeApiKey}
+                    onChange={(e) => setCustomYouTubeApiKey(e.target.value)}
+                    className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                  <p className="text-xs text-gray-400">
+                    Currently stored for future OAuth2 implementation. YouTube transcript access requires complex authentication setup.
+                  </p>
+                </div>
+              )}
+              
+              {!useCustomYouTubeApiKey && (
+                <p className="text-xs text-gray-400">
+                  YouTube transcript functionality will be available in future versions with proper OAuth2 implementation.
+                </p>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Reset Section */}
+        <div className="mt-8 pt-6 border-t border-gray-600">
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-300">
+              🗑️ Reset Pipeline Data
+            </Label>
+            <p className="text-xs text-gray-400">
+              Clear all saved configurations, connections, and data from local storage. This cannot be undone.
+            </p>
+            <Button
+              variant="destructive"
+              onClick={handleResetStorage}
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
+            >
+              Reset All Data
+            </Button>
           </div>
         </div>
 

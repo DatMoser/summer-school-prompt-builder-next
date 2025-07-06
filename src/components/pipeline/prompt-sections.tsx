@@ -20,7 +20,7 @@ export function EvidencePromptSection({ onRemove, highlighted, componentId }: Pr
   return (
     <div 
       className={`bg-purple-500/10 border border-purple-400/20 rounded-lg p-3 mb-3 relative group transition-all duration-300 ${
-        highlighted ? 'ring-4 ring-emerald-400 bg-emerald-500/60 shadow-2xl shadow-emerald-500/40 border-emerald-400/60 scale-105 -translate-y-1 emerald-pulse' : ''
+        highlighted ? 'ring-4 ring-emerald-400 bg-emerald-500/80 shadow-2xl shadow-emerald-500/40 border-emerald-400/60 scale-105 -translate-y-1 emerald-pulse !bg-emerald-500/80' : ''
       }`}
       data-component-id={componentId}
       data-component-type="evidence-input"
@@ -50,7 +50,7 @@ export function StylePromptSection({ onRemove, highlighted, componentId }: Promp
   return (
     <div 
       className={`bg-purple-500/10 border border-purple-400/20 rounded-lg p-3 mb-3 relative group transition-all duration-300 ${
-        highlighted ? 'ring-4 ring-yellow-400 bg-yellow-500/60 shadow-2xl shadow-yellow-500/40 border-yellow-400/60 scale-105 -translate-y-1 yellow-pulse' : ''
+        highlighted ? 'ring-4 ring-yellow-400 bg-yellow-500/80 shadow-2xl shadow-yellow-500/40 border-yellow-400/60 scale-105 -translate-y-1 yellow-pulse !bg-yellow-500/80' : ''
       }`}
       data-component-id={componentId}
       data-component-type="style-personalization"
@@ -80,7 +80,7 @@ export function PersonalDataPromptSection({ onRemove, highlighted, componentId }
   return (
     <div 
       className={`bg-purple-500/10 border border-purple-400/20 rounded-lg p-3 mb-3 relative group transition-all duration-300 ${
-        highlighted ? 'ring-4 ring-blue-400 bg-blue-500/60 shadow-2xl shadow-blue-500/40 border-blue-400/60 scale-105 -translate-y-1 blue-pulse' : ''
+        highlighted ? 'ring-4 ring-blue-400 bg-blue-500/80 shadow-2xl shadow-blue-500/40 border-blue-400/60 scale-105 -translate-y-1 blue-pulse !bg-blue-500/80' : ''
       }`}
       data-component-id={componentId}
       data-component-type="personal-data"
@@ -110,7 +110,7 @@ export function OutputSelectorPromptSection({ onRemove, highlighted, componentId
   return (
     <div 
       className={`bg-purple-500/10 border border-purple-400/20 rounded-lg p-3 mb-3 relative group transition-all duration-300 ${
-        highlighted ? 'ring-4 ring-orange-400 bg-orange-500/60 shadow-2xl shadow-orange-500/40 border-orange-400/60 scale-105 -translate-y-1 orange-pulse' : ''
+        highlighted ? 'ring-4 ring-orange-400 bg-orange-500/80 shadow-2xl shadow-orange-500/40 border-orange-400/60 scale-105 -translate-y-1 orange-pulse !bg-orange-500/80' : ''
       }`}
       data-component-id={componentId}
       data-component-type="output-selector"

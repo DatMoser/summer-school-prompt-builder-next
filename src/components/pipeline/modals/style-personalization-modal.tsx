@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Youtube, Loader2, Type } from 'lucide-react';
+import { Youtube, Loader2, Type, Search } from 'lucide-react';
 import { StyleData } from '@/lib/pipeline-types';
+import GoogleSignIn from '@/components/auth/google-sign-in';
 
 // Helper function to extract YouTube video ID from URL
 function extractYouTubeVideoId(url: string): string | null {
@@ -35,6 +36,42 @@ function extractYouTubeVideoId(url: string): string | null {
   return null;
 }
 
+// Search YouTube videos with transcript availability
+async function searchYouTubeVideos(query: string, accessToken?: string): Promise<any[]> {
+  if (!accessToken) {
+    throw new Error('Authentication required for YouTube search');
+  }
+
+  try {
+    console.log('🚀 Making API request to /api/youtube/search');
+    const response = await fetch('/api/youtube/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({ query, maxResults: 10 })
+    });
+
+    console.log('💰 API response status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ API error response:', errorText);
+      throw new Error(`Failed to search YouTube videos: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('📊 API response data:', data);
+    console.log('📁 Videos in response:', data.videos?.length || 0);
+    
+    return data.videos || [];
+  } catch (error) {
+    console.error('❌ YouTube search error:', error);
+    throw error;
+  }
+}
+
 // Helper function to convert time string to seconds
 function parseTime(timeStr: string): number {
   if (!timeStr) return 0;
@@ -56,45 +93,75 @@ function parseTime(timeStr: string): number {
   }
 }
 
-// Fetch YouTube transcript using our server-side API
-async function fetchYouTubeTranscript(videoId: string, startTime?: string, endTime?: string): Promise<string> {
+// Fetch YouTube transcript and analyze style using our server-side API
+async function fetchYouTubeTranscriptAndAnalyze(videoId: string, startTime?: string, endTime?: string, customApiKey?: string, accessToken?: string): Promise<{transcript: string, styleAnalysis: any}> {
   try {
-    // Build query parameters for time range
-    const params = new URLSearchParams();
-    if (startTime) params.append('startTime', startTime);
-    if (endTime) params.append('endTime', endTime);
+    // Build the full YouTube URL from videoId
+    const youtubeUrl = `https://youtube.com/watch?v=${videoId}`;
     
-    const queryString = params.toString();
-    const url = `http://localhost:3001/api/youtube/transcript/${videoId}${queryString ? `?${queryString}` : ''}`;
+    // Prepare request body
+    const requestBody: any = { url: youtubeUrl };
     
-    console.log(`Fetching transcript from: ${url}`);
+    // Convert time strings to seconds if provided
+    if (startTime) {
+      requestBody.startTime = parseTime(startTime);
+    }
+    if (endTime) {
+      requestBody.endTime = parseTime(endTime);
+    }
     
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    console.log(`Fetching transcript and analyzing style for video: ${videoId}`);
+    
+    const headers: any = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add custom API key if provided
+    if (customApiKey) {
+      headers['x-gemini-api-key'] = customApiKey;
+    }
+    
+    // Add OAuth2 access token if provided (only needed for search functionality)
+    if (accessToken) {
+      console.log('Adding OAuth2 access token to request headers');
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    
+    const response = await fetch('/api/transcribe', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      
+      // Handle specific error types from the new API
+      if (errorData.requiresAuth) {
+        throw new Error(
+          'Authentication required for YouTube transcript access.\n\n' +
+          '🔐 Please sign in with your Google account to access YouTube captions.\n' +
+          '📝 Alternatively, use the "Manual Description" tab to enter your communication style directly.'
+        );
+      }
+      
+      if (errorData.requiresSetup || errorData.requiresOAuth) {
+        throw new Error(
+          errorData.error + '\n\n' +
+          '🔧 Current Status: YouTube transcript functionality requires proper setup.\n' +
+          '📝 For now, please use the "Manual Description" tab to enter your communication style directly.'
+        );
+      }
+      
       throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch transcript`);
     }
 
     const data = await response.json();
-    let transcript = data.transcript || '';
-
-    // Apply time filtering if specified
-    if (startTime || endTime) {
-      const start = startTime ? parseTime(startTime) : 0;
-      const end = endTime ? parseTime(endTime) : Infinity;
-      
-      // Filter transcript by time range (this would need actual timestamp data)
-      // For now, we'll just note the time range in the response
-      transcript = `[Time range: ${startTime || '0:00'} - ${endTime || 'end'}]\n${transcript}`;
-    }
-
-    return transcript;
+    return {
+      transcript: data.transcript || '',
+      styleAnalysis: data.styleAnalysis || null
+    };
+    
   } catch (error: any) {
     if (error.message.includes('404')) {
       throw new Error('Video not found. The video may be private, deleted, or the URL is incorrect.');
@@ -191,11 +258,17 @@ interface StylePersonalizationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDataUpdate: (data: StyleData) => void;
+  customApiKey?: string;
+  customYouTubeApiKey?: string;
 }
 
-export default function StylePersonalizationModal({ open, onOpenChange, onDataUpdate }: StylePersonalizationModalProps) {
-  const [inputMode, setInputMode] = useState<'youtube' | 'text'>('youtube');
+export default function StylePersonalizationModal({ open, onOpenChange, onDataUpdate, customApiKey, customYouTubeApiKey }: StylePersonalizationModalProps) {
+  const [inputMode, setInputMode] = useState<'youtube' | 'search' | 'text'>('youtube');
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<{id: string, title: string, channelTitle: string} | null>(null);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [manualStyleDescription, setManualStyleDescription] = useState('');
@@ -203,33 +276,113 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
   const [styleAnalysis, setStyleAnalysis] = useState<StyleData['extractedStyle'] | null>(null);
   const [transcriptData, setTranscriptData] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
+
+  // Debug effect to track searchResults changes
+  useEffect(() => {
+    console.log('📊 searchResults changed:', searchResults.length, 'items');
+    if (searchResults.length > 0) {
+      console.log('📄 First result:', searchResults[0]);
+    }
+  }, [searchResults]);
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    setError(null);
+    
+    try {
+      console.log('🔍 Starting search for:', searchQuery);
+      console.log('🔑 Access token available:', !!accessToken);
+      
+      const results = await searchYouTubeVideos(searchQuery, accessToken);
+      
+      console.log('✅ Search results received:', results.length, 'videos');
+      console.log('📊 Results data:', results);
+      
+      setSearchResults(results);
+      console.log('📁 Search results state updated');
+      
+      // Force a small delay to see if it's a timing issue
+      setTimeout(() => {
+        console.log('⏰ Delayed check - searchResults.length:', results.length);
+      }, 100);
+    } catch (error: any) {
+      console.error('❌ Failed to search videos:', error);
+      setError(error.message || 'Failed to search videos. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleVideoSelect = (video: any) => {
+    setSelectedVideo({
+      id: video.id,
+      title: video.snippet.title,
+      channelTitle: video.snippet.channelTitle
+    });
+    setYoutubeUrl(`https://youtube.com/watch?v=${video.id}`);
+  };
 
   const handleAnalyze = async () => {
-    if (inputMode === 'youtube' && !youtubeUrl) return;
+    if ((inputMode === 'youtube' || inputMode === 'search') && !youtubeUrl) return;
     if (inputMode === 'text' && !manualStyleDescription) return;
 
     setIsAnalyzing(true);
     setError(null);
     
     try {
-      if (inputMode === 'youtube') {
+      if (inputMode === 'youtube' || inputMode === 'search') {
         // Extract video ID from YouTube URL
         const videoId = extractYouTubeVideoId(youtubeUrl);
         if (!videoId) {
           throw new Error('Invalid YouTube URL. Please provide a valid YouTube video URL.');
         }
 
-        // Fetch transcript using youtube-transcript library
-        const transcript = await fetchYouTubeTranscript(videoId, startTime, endTime);
+        // Debug: Check authentication state
+        console.log('handleAnalyze: Authentication state:', {
+          isAuthenticated,
+          hasAccessToken: !!accessToken,
+          accessTokenLength: accessToken?.length || 0
+        });
+
+        // Fetch transcript and analyze with Gemini
+        const { transcript, styleAnalysis: geminiAnalysis } = await fetchYouTubeTranscriptAndAnalyze(
+          videoId, 
+          startTime, 
+          endTime, 
+          customApiKey,
+          accessToken
+        );
         
         if (!transcript || transcript.length === 0) {
           throw new Error('No transcript available for this video. The video may not have captions enabled or may be unavailable.');
         }
 
-        // Store the transcript and analyze for style elements
+        // Store the transcript
         setTranscriptData(transcript);
-        const styleAnalysis = analyzeTranscriptStyle(transcript);
-        setStyleAnalysis(styleAnalysis);
+        
+        // Use Gemini analysis if available, otherwise fallback to local analysis
+        let finalStyleAnalysis;
+        if (geminiAnalysis) {
+          finalStyleAnalysis = {
+            tone: geminiAnalysis.tone || 'Analyzed',
+            pace: geminiAnalysis.pace || 'Moderate',
+            vocabulary: geminiAnalysis.vocabulary || 'Mixed',
+            keyPhrases: geminiAnalysis.keyPhrases || ['analyzed content'],
+            communicationStyle: geminiAnalysis.communicationStyle,
+            personalityTraits: geminiAnalysis.personalityTraits,
+            audience: geminiAnalysis.audience,
+            rawAnalysis: geminiAnalysis.rawAnalysis
+          };
+        } else {
+          // Fallback to local analysis
+          finalStyleAnalysis = analyzeTranscriptStyle(transcript);
+        }
+        
+        setStyleAnalysis(finalStyleAnalysis);
         
       } else {
         // Analyze manual text description
@@ -246,10 +399,12 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
         errorMessage = 'No transcript available for this video. The video may not have auto-generated or manual captions enabled.';
       } else if (error.message.includes('Video not found')) {
         errorMessage = 'Video not found. The video may be private, deleted, or the URL is incorrect.';
+      } else if (error.message.includes('API key')) {
+        errorMessage = 'Gemini API key issue. The transcript was fetched but style analysis failed. Please check your API key.';
+      } else if (error.message.includes('quota') || error.message.includes('rate')) {
+        errorMessage = 'API quota exceeded or rate limited. Please try again later.';
       } else if (error.message.includes('network')) {
         errorMessage = 'Network error. Please check your internet connection and try again.';
-      } else if (error.message.includes('rate limit')) {
-        errorMessage = 'Too many requests. Please wait a moment and try again.';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -262,18 +417,18 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
   };
 
   const handleConfirm = () => {
-    // For YouTube mode, require analysis to be completed
-    if (inputMode === 'youtube' && !styleAnalysis) return;
+    // For YouTube/search mode, require analysis to be completed
+    if ((inputMode === 'youtube' || inputMode === 'search') && !styleAnalysis) return;
     
     // For text mode, require manual description to be provided
     if (inputMode === 'text' && !manualStyleDescription.trim()) return;
     
     const styleData: StyleData = {
-      youtubeUrl: inputMode === 'youtube' ? youtubeUrl : `Manual: ${manualStyleDescription.substring(0, 50)}...`,
-      startTime: inputMode === 'youtube' ? (startTime || undefined) : undefined,
-      endTime: inputMode === 'youtube' ? (endTime || undefined) : undefined,
-      transcript: inputMode === 'youtube' ? transcriptData : manualStyleDescription,
-      extractedStyle: inputMode === 'youtube' ? styleAnalysis! : {
+      youtubeUrl: (inputMode === 'youtube' || inputMode === 'search') ? youtubeUrl : `Manual: ${manualStyleDescription.substring(0, 50)}...`,
+      startTime: (inputMode === 'youtube' || inputMode === 'search') ? (startTime || undefined) : undefined,
+      endTime: (inputMode === 'youtube' || inputMode === 'search') ? (endTime || undefined) : undefined,
+      transcript: (inputMode === 'youtube' || inputMode === 'search') ? transcriptData : manualStyleDescription,
+      extractedStyle: (inputMode === 'youtube' || inputMode === 'search') ? styleAnalysis! : {
         tone: "User-defined style",
         pace: "As described",
         vocabulary: "Manual input",
@@ -285,6 +440,9 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
     
     // Reset state
     setYoutubeUrl('');
+    setSearchQuery('');
+    setSearchResults([]);
+    setSelectedVideo(null);
     setStartTime('');
     setEndTime('');
     setManualStyleDescription('');
@@ -296,6 +454,9 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
   const handleCancel = () => {
     onOpenChange(false);
     setYoutubeUrl('');
+    setSearchQuery('');
+    setSearchResults([]);
+    setSelectedVideo(null);
     setStartTime('');
     setEndTime('');
     setManualStyleDescription('');
@@ -305,8 +466,29 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gray-800 border-gray-600 text-white max-w-md w-[90vw] sm:w-full max-h-[80vh] overflow-y-auto p-4 sm:p-6">
+    <Dialog open={open} onOpenChange={(newOpen) => {
+      console.log('Dialog onOpenChange called:', newOpen);
+      onOpenChange(newOpen);
+    }}>
+      <DialogContent 
+        className="bg-gray-800 border-gray-600 text-white max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto p-6"
+        onKeyDown={(e) => {
+          console.log('⌨️ Modal keydown:', e.key);
+          e.stopPropagation();
+        }}
+        onFocus={(e) => {
+          console.log('🎯 Modal focused');
+          e.stopPropagation();
+        }}
+        onBlur={(e) => {
+          console.log('🔴 Modal blurred');
+          e.stopPropagation();
+        }}
+        onClick={(e) => {
+          console.log('💱 Modal clicked');
+          e.stopPropagation();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold">Style Personalization</DialogTitle>
           <DialogDescription className="text-gray-400">
@@ -316,35 +498,66 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
         
         <div className="space-y-4">
           {/* Input mode selection */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-4">
+          <div className="grid grid-cols-3 gap-4 mb-6">
             <button
-              onClick={() => setInputMode('youtube')}
-              className={`flex items-center justify-center sm:justify-start gap-2 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base ${
+              onClick={() => {
+                setInputMode('youtube');
+                setError(null); // Clear errors when switching modes
+              }}
+              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
                 inputMode === 'youtube' 
                   ? 'bg-purple-600 text-white' 
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
               }`}
             >
-              <Youtube size={16} />
-              <span className="hidden sm:inline">YouTube Video</span>
-              <span className="sm:hidden">YouTube</span>
+              <Youtube size={18} />
+              <span>YouTube URL</span>
             </button>
             <button
-              onClick={() => setInputMode('text')}
-              className={`flex items-center justify-center sm:justify-start gap-2 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base ${
+              onClick={() => {
+                setInputMode('search');
+                setError(null); // Clear errors when switching modes
+              }}
+              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
+                inputMode === 'search' 
+                  ? 'bg-purple-600 text-white' 
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              <Search size={18} />
+              <span>Search Videos</span>
+            </button>
+            <button
+              onClick={() => {
+                setInputMode('text');
+                setError(null); // Clear errors when switching modes
+              }}
+              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
                 inputMode === 'text' 
                   ? 'bg-purple-600 text-white' 
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
               }`}
             >
-              <Type size={16} />
-              <span className="hidden sm:inline">Manual Description</span>
-              <span className="sm:hidden">Manual</span>
+              <Type size={18} />
+              <span>Manual Description</span>
             </button>
           </div>
 
           {inputMode === 'youtube' ? (
             <>
+              {/* Google Authentication */}
+              <div>
+                <Label className="text-sm font-medium text-gray-300 mb-2 block">
+                  Authentication Required
+                </Label>
+                <GoogleSignIn 
+                  onAuthChange={(isAuth, token) => {
+                    setIsAuthenticated(isAuth);
+                    setAccessToken(token);
+                  }}
+                />
+              </div>
+
               <div>
                 <Label htmlFor="youtube-url" className="text-sm font-medium text-gray-300 mb-2 block">
                   YouTube Video URL
@@ -356,8 +569,126 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
                   className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500"
+                  disabled={!isAuthenticated}
                 />
               </div>
+            </>
+          ) : inputMode === 'search' ? (
+            <>
+              {/* Google Authentication */}
+              <div>
+                <Label className="text-sm font-medium text-gray-300 mb-2 block">
+                  Authentication Required
+                </Label>
+                <GoogleSignIn 
+                  onAuthChange={(isAuth, token) => {
+                    setIsAuthenticated(isAuth);
+                    setAccessToken(token);
+                  }}
+                />
+              </div>
+
+              {/* Search Bar */}
+              <div>
+                <Label htmlFor="video-search" className="text-sm font-medium text-gray-300 mb-2 block">
+                  Search YouTube Videos
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="video-search"
+                    type="text"
+                    placeholder="Search for videos with transcripts..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      console.log('📝 Search query updated:', e.target.value);
+                      setSearchQuery(e.target.value);
+                    }}
+                    onFocus={(e) => {
+                      console.log('🎯 Search input focused');
+                      e.stopPropagation();
+                    }}
+                    onBlur={(e) => {
+                      console.log('🔴 Search input blurred');
+                      e.stopPropagation();
+                    }}
+                    className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500"
+                    disabled={!isAuthenticated}
+                    onKeyPress={(e) => {
+                      e.stopPropagation();
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSearch();
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={handleSearch}
+                    disabled={!searchQuery.trim() || isSearching || !isAuthenticated}
+                    className="bg-purple-500 hover:bg-purple-600 px-3"
+                  >
+                    {isSearching ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Search Results Debug */}
+              <div className="text-xs text-gray-400">
+                Debug: {searchResults.length} results, searching: {isSearching ? 'yes' : 'no'}
+              </div>
+
+              {/* Search Results */}
+              {searchResults.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-300">
+                    Search Results ({searchResults.length} Videos with Transcript Availability)
+                  </Label>
+                  <div className="max-h-48 overflow-y-auto space-y-2">
+                    {searchResults.map((video) => (
+                      <div
+                        key={video.id}
+                        onClick={() => handleVideoSelect(video)}
+                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                          selectedVideo?.id === video.id
+                            ? 'bg-purple-600/20 border-purple-500'
+                            : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0">
+                            <Youtube className="h-5 w-5 text-red-500" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-sm font-medium text-white truncate">
+                              {video.snippet.title}
+                            </h4>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {video.snippet.channelTitle}
+                            </p>
+                            <p className="text-xs text-green-400 mt-1">
+                              ✓ Transcript Available
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Selected Video Display */}
+              {selectedVideo && (
+                <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-green-400 text-sm">
+                    <Youtube className="h-4 w-4" />
+                    <span className="font-medium">Selected:</span>
+                    <span className="truncate">{selectedVideo.title}</span>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div>
@@ -375,8 +706,8 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
             </div>
           )}
 
-          {/* Timestamp inputs - only for YouTube mode */}
-          {inputMode === 'youtube' && (
+          {/* Timestamp inputs - only for YouTube and search modes */}
+          {(inputMode === 'youtube' || inputMode === 'search') && (
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -412,25 +743,45 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
             </>
           )}
 
-          {/* Analyze Button - only for YouTube mode */}
-          {inputMode === 'youtube' && (
-            <Button
-              onClick={handleAnalyze}
-              disabled={!youtubeUrl || isAnalyzing}
-              className="w-full bg-purple-500 hover:bg-purple-600"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Youtube className="mr-2 h-4 w-4" />
-                  Analyze Style
-                </>
-              )}
-            </Button>
+          {/* Analyze Button - only for YouTube and search modes */}
+          {(inputMode === 'youtube' || inputMode === 'search') && (
+            <>
+              <Button
+                onClick={handleAnalyze}
+                disabled={!youtubeUrl || isAnalyzing || (inputMode === 'search' && !isAuthenticated)}
+                className="w-full bg-purple-500 hover:bg-purple-600"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Youtube className="mr-2 h-4 w-4" />
+                    Analyze Style
+                  </>
+                )}
+              </Button>
+              
+              <div className="space-y-2">
+                {!customApiKey && (
+                  <p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded p-2">
+                    💡 For AI-powered style analysis, set up a Gemini API key in Settings. Without it, basic analysis will be used.
+                  </p>
+                )}
+                
+                <p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded p-2">
+                  ⚠️ YouTube transcript access is limited by YouTube's API policy. Only works with your own videos or videos that explicitly allow third-party caption access.
+                </p>
+                
+                {customYouTubeApiKey && (
+                  <p className="text-xs text-blue-400 bg-blue-400/10 border border-blue-400/20 rounded p-2">
+                    🔑 YouTube API key configured for OAuth2 authentication.
+                  </p>
+                )}
+              </div>
+            </>
           )}
 
           {/* Error Display */}
@@ -441,7 +792,7 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
           )}
 
           {/* Transcript Preview */}
-          {transcriptData && inputMode === 'youtube' && (
+          {transcriptData && (inputMode === 'youtube' || inputMode === 'search') && (
             <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4">
               <h4 className="font-medium text-green-400 mb-2">✓ Transcript Successfully Fetched</h4>
               <div className="text-sm text-gray-300">
@@ -458,7 +809,9 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
           {/* Style Analysis Results */}
           {styleAnalysis && (
             <div className="bg-purple-500/10 border border-purple-400/20 rounded-lg p-4">
-              <h4 className="font-medium text-purple-400 mb-2">Extracted Style Elements</h4>
+              <h4 className="font-medium text-purple-400 mb-2">
+                {styleAnalysis.communicationStyle ? 'AI-Powered Style Analysis' : 'Extracted Style Elements'}
+              </h4>
               <div className="space-y-2 text-sm text-gray-300">
                 <div className="flex justify-between">
                   <span>Tone:</span>
@@ -472,6 +825,35 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
                   <span>Vocabulary:</span>
                   <span className="text-purple-300">{styleAnalysis.vocabulary}</span>
                 </div>
+                
+                {/* New Gemini fields */}
+                {styleAnalysis.communicationStyle && (
+                  <div className="flex justify-between">
+                    <span>Communication Style:</span>
+                    <span className="text-purple-300">{styleAnalysis.communicationStyle}</span>
+                  </div>
+                )}
+                
+                {styleAnalysis.audience && (
+                  <div className="flex justify-between">
+                    <span>Target Audience:</span>
+                    <span className="text-purple-300">{styleAnalysis.audience}</span>
+                  </div>
+                )}
+                
+                {styleAnalysis.personalityTraits && styleAnalysis.personalityTraits.length > 0 && (
+                  <div className="mt-2">
+                    <span className="block mb-1">Personality Traits:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {styleAnalysis.personalityTraits.map((trait, index) => (
+                        <span key={index} className="text-xs bg-blue-400/20 px-2 py-1 rounded text-blue-200">
+                          {trait}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="mt-2">
                   <span className="block mb-1">Key Phrases:</span>
                   <div className="flex flex-wrap gap-1">
@@ -498,7 +880,7 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
           <Button
             onClick={handleConfirm}
             disabled={
-              inputMode === 'youtube' ? !styleAnalysis : !manualStyleDescription.trim()
+              (inputMode === 'youtube' || inputMode === 'search') ? !styleAnalysis : !manualStyleDescription.trim()
             }
             className="flex-1 bg-purple-500 hover:bg-purple-600"
           >

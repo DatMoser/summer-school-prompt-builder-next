@@ -86,7 +86,13 @@ export function EvidenceInputNode({ data, selected }: CustomNodeProps) {
             e.stopPropagation();
             data.onDelete?.();
           }}
-          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600"
+          onMouseEnter={(e) => {
+            e.stopPropagation();
+          }}
+          onMouseLeave={(e) => {
+            e.stopPropagation();
+          }}
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10"
         >
           <X size={12} className="text-white" />
         </button>
@@ -103,8 +109,14 @@ export function StylePersonalizationNode({ data, selected }: CustomNodeProps) {
           selected ? 'ring-2 ring-blue-400' : ''
         }`}
         onClick={data.onConfigure}
-        onMouseEnter={() => data.onHover?.(true)}
-        onMouseLeave={() => data.onHover?.(false)}
+        onMouseEnter={() => {
+          console.log(`🖱️ Style node hover enter`);
+          data.onHover?.(true);
+        }}
+        onMouseLeave={() => {
+          console.log(`🖱️ Style node hover leave`);
+          data.onHover?.(false);
+        }}
       >
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -157,7 +169,13 @@ export function StylePersonalizationNode({ data, selected }: CustomNodeProps) {
             e.stopPropagation();
             data.onDelete?.();
           }}
-          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600"
+          onMouseEnter={(e) => {
+            e.stopPropagation();
+          }}
+          onMouseLeave={(e) => {
+            e.stopPropagation();
+          }}
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10"
         >
           <X size={12} className="text-white" />
         </button>
@@ -174,8 +192,14 @@ export function PersonalDataNode({ data, selected }: CustomNodeProps) {
           selected ? 'ring-2 ring-blue-400' : ''
         }`}
         onClick={data.onConfigure}
-        onMouseEnter={() => data.onHover?.(true)}
-        onMouseLeave={() => data.onHover?.(false)}
+        onMouseEnter={() => {
+          console.log(`🖱️ Style node hover enter`);
+          data.onHover?.(true);
+        }}
+        onMouseLeave={() => {
+          console.log(`🖱️ Style node hover leave`);
+          data.onHover?.(false);
+        }}
       >
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -228,7 +252,13 @@ export function PersonalDataNode({ data, selected }: CustomNodeProps) {
             e.stopPropagation();
             data.onDelete?.();
           }}
-          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600"
+          onMouseEnter={(e) => {
+            e.stopPropagation();
+          }}
+          onMouseLeave={(e) => {
+            e.stopPropagation();
+          }}
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10"
         >
           <X size={12} className="text-white" />
         </button>
@@ -245,8 +275,14 @@ export function OutputSelectorNode({ data, selected }: CustomNodeProps) {
           selected ? 'ring-2 ring-blue-400' : ''
         }`}
         onClick={data.onConfigure}
-        onMouseEnter={() => data.onHover?.(true)}
-        onMouseLeave={() => data.onHover?.(false)}
+        onMouseEnter={() => {
+          console.log(`🖱️ Style node hover enter`);
+          data.onHover?.(true);
+        }}
+        onMouseLeave={() => {
+          console.log(`🖱️ Style node hover leave`);
+          data.onHover?.(false);
+        }}
       >
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -299,7 +335,13 @@ export function OutputSelectorNode({ data, selected }: CustomNodeProps) {
             e.stopPropagation();
             data.onDelete?.();
           }}
-          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600"
+          onMouseEnter={(e) => {
+            e.stopPropagation();
+          }}
+          onMouseLeave={(e) => {
+            e.stopPropagation();
+          }}
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10"
         >
           <X size={12} className="text-white" />
         </button>

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useCallback, useRef, useEffect, useMemo, useState } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -59,9 +59,9 @@ function CanvasWorkspaceContent({
   selectedComponentType,
 }: CanvasWorkspaceProps) {
   
-  // Remove excessive logging - only log when connections change
-  // console.log('📦 CANVAS WORKSPACE RECEIVED PROPS');
-  // console.log('Nodes:', nodes);
+  // Debug: Log received props for position tracking
+  console.log('📦 CANVAS WORKSPACE RECEIVED PROPS');
+  console.log('Nodes positions received:', nodes.map(n => ({ id: n.id, position: n.position })));
   // console.log('Connections:', connections);
   // console.log('Prompt node data:', nodes.find(n => n.type === 'prompt')?.data);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -70,6 +70,59 @@ function CanvasWorkspaceContent({
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
   const isDragging = useRef<boolean>(false);
   const updateTimeout = useRef<NodeJS.Timeout | null>(null);
+  const justUpdatedPositions = useRef<boolean>(false);
+  const pendingPositionUpdate = useRef<boolean>(false);
+  const currentNodes = useRef<PipelineNode[]>(nodes);
+  const [pendingPositionChanges, setPendingPositionChanges] = useState<NodeChange[]>([]);
+  const isInitialLoad = useRef<boolean>(true);
+
+  // Update currentNodes ref whenever nodes change
+  useEffect(() => {
+    currentNodes.current = nodes;
+  }, [nodes]);
+
+  // Process pending position changes after a delay
+  useEffect(() => {
+    if (pendingPositionChanges.length === 0) return;
+    
+    console.log('🔄 Processing pending position changes:', pendingPositionChanges.length);
+    
+    const timeoutId = setTimeout(() => {
+      console.log('🔄 Processing position updates via useEffect...');
+      
+      // Get current ReactFlow positions directly
+      setReactFlowNodes(currentRFNodes => {
+        // Get the most current nodes and apply changes from ReactFlow positions
+        const updatedNodes = currentNodes.current.map(node => {
+          const rfNode = currentRFNodes.find(rf => rf.id === node.id);
+          if (rfNode) {
+            console.log('📦 Syncing position for node:', node.id, 'from:', node.position, 'to:', rfNode.position);
+            return { ...node, position: rfNode.position };
+          }
+          return node;
+        });
+        
+        console.log('💾 Calling onNodesChange with ReactFlow positions:', updatedNodes.map(n => ({ id: n.id, position: n.position })));
+        justUpdatedPositions.current = true;
+        setPendingPositionChanges([]); // Clear pending changes
+        
+        // Defer the state update to avoid setState during render
+        setTimeout(() => {
+          onNodesChange(updatedNodes);
+        }, 0);
+        
+        // Clear the pending flag after update
+        setTimeout(() => {
+          pendingPositionUpdate.current = false;
+          console.log('🔓 Position update complete, sync allowed again');
+        }, 100);
+        
+        return currentRFNodes; // Don't modify ReactFlow state
+      });
+    }, 50);
+    
+    return () => clearTimeout(timeoutId);
+  }, [pendingPositionChanges, onNodesChange]);
 
   // Memoized node and edge types to prevent ReactFlow warnings
   const nodeTypes = useMemo(() => ({
@@ -209,30 +262,68 @@ function CanvasWorkspaceContent({
   // Sync ReactFlow nodes with pipeline nodes (but preserve positions from ReactFlow)
   useEffect(() => {
     // Don't sync nodes while dragging to prevent interference
-    if (isDragging.current) return;
+    if (isDragging.current) {
+      console.log('⏸️ Skipping sync - currently dragging');
+      return;
+    }
+    
+    // Don't sync if we just updated positions to prevent position reset
+    if (justUpdatedPositions.current) {
+      console.log('⏸️ Skipping sync - just updated positions from drag');
+      justUpdatedPositions.current = false;
+      return;
+    }
+    
+    // Don't sync if we have a pending position update
+    if (pendingPositionUpdate.current) {
+      console.log('⏸️ Skipping sync - pending position update');
+      return;
+    }
+    
+    console.log('🔄 Node sync useEffect triggered. Pipeline nodes count:', nodes.length);
+    console.log('🔄 Sync triggered by - selectedComponentType:', selectedComponentType);
     
     // Only log when nodes actually change structure or selectedComponentType changes
     const promptNode = nodes.find(n => n.type === 'prompt');
     const connectionCount = promptNode?.data.connectedComponentsWithIds?.length || 0;
     console.log(`🔄 SYNCING REACTFLOW NODES - ${connectionCount} connections, selectedComponentType: ${selectedComponentType}`);
+    console.log('📍 Pipeline nodes positions:', nodes.map(n => ({ id: n.id, position: n.position })));
     
     const rfNodes = convertToReactFlowNodes(nodes);
     
     setReactFlowNodes(current => {
-      // Preserve positions and other ReactFlow-specific state from current ReactFlow nodes
+      // Preserve ReactFlow state while allowing pipeline updates
       const updatedNodes = rfNodes.map(newNode => {
         const existingNode = current.find(n => n.id === newNode.id);
         if (existingNode) {
-          // Preserve position, selected state, and other ReactFlow state but update data
+          // Use pipeline positions only if:
+          // 1. It's initial load, OR
+          // 2. We just updated positions from drag (justUpdatedPositions flag)
+          const shouldUsePipelinePosition = isInitialLoad.current || justUpdatedPositions.current;
+          const finalPosition = shouldUsePipelinePosition ? newNode.position : existingNode.position;
+          
+          if (shouldUsePipelinePosition) {
+            console.log('📥 Using updated pipeline position for node:', newNode.id, finalPosition);
+          } else {
+            console.log('🔒 Preserving ReactFlow position for node:', newNode.id, finalPosition);
+          }
+          
           return { 
             ...newNode, 
-            position: existingNode.position,
+            position: finalPosition,
             selected: existingNode.selected,
             dragging: existingNode.dragging
           };
         }
+        console.log('🆕 New node (no existing): ', newNode.id, 'position:', newNode.position);
         return newNode;
       });
+      
+      // Mark initial load as complete after first sync
+      if (isInitialLoad.current) {
+        isInitialLoad.current = false;
+        console.log('🏁 Initial load complete');
+      }
       
       return updatedNodes;
     });
@@ -254,7 +345,12 @@ function CanvasWorkspaceContent({
     const dragChanges = changes.filter(change => change.type === 'position');
     if (dragChanges.length > 0) {
       const anyDragging = dragChanges.some(change => change.dragging === true);
+      const wasChanged = isDragging.current !== anyDragging;
       isDragging.current = anyDragging;
+      
+      if (wasChanged) {
+        console.log('🐭 Dragging state changed:', anyDragging ? 'STARTED' : 'STOPPED');
+      }
     }
     
     // Track selected nodes for highlighting
@@ -265,15 +361,25 @@ function CanvasWorkspaceContent({
           // Find the node and get its type
           const node = nodes.find(n => n.id === change.id);
           if (node && node.type !== 'prompt') {
+            console.log('🎯 Node selected:', node.type);
             // Pass the selected component type to parent
             onSelectionChange?.(node.type);
           }
         } else {
+          console.log('🔴 Node deselected:', change.id);
           // Node was deselected
           onSelectionChange?.(null);
         }
       }
     });
+    
+    // Debug: Log all position-related changes
+    const allPositionChanges = changes.filter(change => change.type === 'position');
+    console.log('📦 All position changes:', allPositionChanges.map(c => ({
+      id: 'id' in c ? c.id : 'unknown',
+      dragging: c.dragging,
+      position: c.position
+    })));
     
     // Update positions in our pipeline nodes, but only for non-dragging position changes
     const positionChanges = changes.filter(change => 
@@ -281,23 +387,19 @@ function CanvasWorkspaceContent({
       change.dragging === false // Only update when drag is complete
     );
     
+    console.log('📦 Non-dragging position changes:', positionChanges.length, positionChanges.map(c => ({
+      id: 'id' in c ? c.id : 'unknown',
+      position: c.position
+    })));
+    
     if (positionChanges.length > 0) {
-      // Clear any pending updates
-      if (updateTimeout.current) {
-        clearTimeout(updateTimeout.current);
-      }
+      console.log('⏰ Setting pending position changes via state');
       
-      // Debounce the position update to prevent excessive re-renders
-      updateTimeout.current = setTimeout(() => {
-        const updatedNodes = nodes.map(node => {
-          const positionChange = positionChanges.find(change => 'id' in change && change.id === node.id);
-          if (positionChange && positionChange.type === 'position' && positionChange.position) {
-            return { ...node, position: positionChange.position };
-          }
-          return node;
-        });
-        onNodesChange(updatedNodes);
-      }, 16); // ~60fps update rate
+      // Set pending flag to prevent sync interference
+      pendingPositionUpdate.current = true;
+      
+      // Store the position changes in state to trigger useEffect
+      setPendingPositionChanges(positionChanges);
     }
   }, [onNodesChangeRF, nodes, onNodesChange, onSelectionChange]);
 
@@ -447,7 +549,23 @@ function CanvasWorkspaceContent({
   // Handle keyboard shortcuts for deletion
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Prevent deletion if user is typing in an input field or modal
+      const target = event.target as Element;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.contentEditable === 'true' ||
+        target.closest('[role="dialog"]') ||
+        target.closest('.modal') ||
+        target.closest('[data-radix-modal]')
+      ) {
+        console.log('🚫 Ignoring delete key - user is typing in:', target.tagName);
+        return;
+      }
+      
       if (event.key === 'Delete' || event.key === 'Backspace') {
+        console.log('🗑️ Processing delete key for canvas elements');
+        
         // Get selected nodes and edges
         const selectedNodes = reactFlowNodes.filter(node => node.selected);
         const selectedEdges = reactFlowEdges.filter(edge => edge.selected);
@@ -470,6 +588,7 @@ function CanvasWorkspaceContent({
       // Cleanup timeout on unmount
       if (updateTimeout.current) {
         clearTimeout(updateTimeout.current);
+        pendingPositionUpdate.current = false;
       }
     };
   }, [reactFlowNodes, reactFlowEdges, handleNodeDelete, handleEdgeDelete]);

@@ -39,6 +39,10 @@ export interface StyleData {
     pace: string;
     vocabulary: string;
     keyPhrases: string[];
+    communicationStyle?: string;
+    personalityTraits?: string[];
+    audience?: string;
+    rawAnalysis?: string;
   };
 }
 
