@@ -36,7 +36,7 @@ function extractYouTubeVideoId(url: string): string | null {
   return null;
 }
 
-// Search YouTube videos with transcript availability
+// Search YouTube videos with transcript availability - restricted to user's own uploads
 async function searchYouTubeVideos(query: string, accessToken?: string): Promise<any[]> {
   if (!accessToken) {
     throw new Error('Authentication required for YouTube search');
@@ -50,7 +50,7 @@ async function searchYouTubeVideos(query: string, accessToken?: string): Promise
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`
       },
-      body: JSON.stringify({ query, maxResults: 10 })
+      body: JSON.stringify({ query, maxResults: 10, forMine: true })
     });
 
     console.log('💰 API response status:', response.status, response.statusText);
@@ -263,7 +263,7 @@ interface StylePersonalizationModalProps {
 }
 
 export default function StylePersonalizationModal({ open, onOpenChange, onDataUpdate, customApiKey, customYouTubeApiKey }: StylePersonalizationModalProps) {
-  const [inputMode, setInputMode] = useState<'youtube' | 'search' | 'text'>('youtube');
+  const [inputMode, setInputMode] = useState<'search' | 'text'>('text');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -327,14 +327,14 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
   };
 
   const handleAnalyze = async () => {
-    if ((inputMode === 'youtube' || inputMode === 'search') && !youtubeUrl) return;
+    if (inputMode === 'search' && !youtubeUrl) return;
     if (inputMode === 'text' && !manualStyleDescription) return;
 
     setIsAnalyzing(true);
     setError(null);
     
     try {
-      if (inputMode === 'youtube' || inputMode === 'search') {
+      if (inputMode === 'search') {
         // Extract video ID from YouTube URL
         const videoId = extractYouTubeVideoId(youtubeUrl);
         if (!videoId) {
@@ -417,18 +417,18 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
   };
 
   const handleConfirm = () => {
-    // For YouTube/search mode, require analysis to be completed
-    if ((inputMode === 'youtube' || inputMode === 'search') && !styleAnalysis) return;
+    // For search mode, require analysis to be completed
+    if (inputMode === 'search' && !styleAnalysis) return;
     
     // For text mode, require manual description to be provided
     if (inputMode === 'text' && !manualStyleDescription.trim()) return;
     
     const styleData: StyleData = {
-      youtubeUrl: (inputMode === 'youtube' || inputMode === 'search') ? youtubeUrl : `Manual: ${manualStyleDescription.substring(0, 50)}...`,
-      startTime: (inputMode === 'youtube' || inputMode === 'search') ? (startTime || undefined) : undefined,
-      endTime: (inputMode === 'youtube' || inputMode === 'search') ? (endTime || undefined) : undefined,
-      transcript: (inputMode === 'youtube' || inputMode === 'search') ? transcriptData : manualStyleDescription,
-      extractedStyle: (inputMode === 'youtube' || inputMode === 'search') ? styleAnalysis! : {
+      youtubeUrl: inputMode === 'search' ? youtubeUrl : `Manual: ${manualStyleDescription.substring(0, 50)}...`,
+      startTime: inputMode === 'search' ? (startTime || undefined) : undefined,
+      endTime: inputMode === 'search' ? (endTime || undefined) : undefined,
+      transcript: inputMode === 'search' ? transcriptData : manualStyleDescription,
+      extractedStyle: inputMode === 'search' ? styleAnalysis! : {
         tone: "User-defined style",
         pace: "As described",
         vocabulary: "Manual input",
@@ -440,8 +440,7 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
     
     // Reset state
     setYoutubeUrl('');
-    setSearchQuery('');
-    setSearchResults([]);
+    setVideos([]);
     setSelectedVideo(null);
     setStartTime('');
     setEndTime('');
@@ -449,13 +448,14 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
     setStyleAnalysis(null);
     setTranscriptData('');
     setError(null);
+    setNextPageToken(null);
+    setHasMoreVideos(true);
   };
 
   const handleCancel = () => {
     onOpenChange(false);
     setYoutubeUrl('');
-    setSearchQuery('');
-    setSearchResults([]);
+    setVideos([]);
     setSelectedVideo(null);
     setStartTime('');
     setEndTime('');
@@ -463,6 +463,8 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
     setStyleAnalysis(null);
     setTranscriptData('');
     setError(null);
+    setNextPageToken(null);
+    setHasMoreVideos(true);
   };
 
   return (
@@ -492,41 +494,13 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold">Style Personalization</DialogTitle>
           <DialogDescription className="text-gray-400">
-            Analyze a YouTube video or describe your preferred communication style manually
+            Describe your preferred communication style manually, or analyze your own uploaded YouTube videos
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
           {/* Input mode selection */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <button
-              onClick={() => {
-                setInputMode('youtube');
-                setError(null); // Clear errors when switching modes
-              }}
-              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
-                inputMode === 'youtube' 
-                  ? 'bg-purple-600 text-white' 
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              <Youtube size={18} />
-              <span>YouTube URL</span>
-            </button>
-            <button
-              onClick={() => {
-                setInputMode('search');
-                setError(null); // Clear errors when switching modes
-              }}
-              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
-                inputMode === 'search' 
-                  ? 'bg-purple-600 text-white' 
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              <Search size={18} />
-              <span>Search Videos</span>
-            </button>
+          <div className="grid grid-cols-2 gap-4 mb-6">
             <button
               onClick={() => {
                 setInputMode('text');
@@ -541,38 +515,36 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
               <Type size={18} />
               <span>Manual Description</span>
             </button>
+            <button
+              onClick={() => {
+                setInputMode('search');
+                setError(null); // Clear errors when switching modes
+              }}
+              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
+                inputMode === 'search' 
+                  ? 'bg-purple-600 text-white' 
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              <Search size={18} />
+              <span>Search Your Videos</span>
+            </button>
           </div>
 
-          {inputMode === 'youtube' ? (
-            <>
-              {/* Google Authentication */}
-              <div>
-                <Label className="text-sm font-medium text-gray-300 mb-2 block">
-                  Authentication Required
-                </Label>
-                <GoogleSignIn 
-                  onAuthChange={(isAuth, token) => {
-                    setIsAuthenticated(isAuth);
-                    setAccessToken(token);
-                  }}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="youtube-url" className="text-sm font-medium text-gray-300 mb-2 block">
-                  YouTube Video URL
-                </Label>
-                <Input
-                  id="youtube-url"
-                  type="url"
-                  placeholder="https://youtube.com/watch?v=..."
-                  value={youtubeUrl}
-                  onChange={(e) => setYoutubeUrl(e.target.value)}
-                  className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500"
-                  disabled={!isAuthenticated}
-                />
-              </div>
-            </>
+          {inputMode === 'text' ? (
+            <div>
+              <Label htmlFor="manual-style" className="text-sm font-medium text-gray-300 mb-2 block">
+                Describe Your Preferred Communication Style
+              </Label>
+              <Textarea
+                id="manual-style"
+                placeholder="Describe the tone, pace, vocabulary, and communication style you prefer. For example: 'I prefer a casual, conversational tone with simple language and short sentences. I like when explanations are friendly and encouraging...'"
+                value={manualStyleDescription}
+                onChange={(e) => setManualStyleDescription(e.target.value)}
+                className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500 min-h-[100px]"
+                rows={4}
+              />
+            </div>
           ) : inputMode === 'search' ? (
             <>
               {/* Google Authentication */}
@@ -591,13 +563,13 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
               {/* Search Bar */}
               <div>
                 <Label htmlFor="video-search" className="text-sm font-medium text-gray-300 mb-2 block">
-                  Search YouTube Videos
+                  Search Your YouTube Videos
                 </Label>
                 <div className="flex gap-2">
                   <Input
                     id="video-search"
                     type="text"
-                    placeholder="Search for videos with transcripts..."
+                    placeholder="Search your uploaded videos with transcripts..."
                     value={searchQuery}
                     onChange={(e) => {
                       console.log('📝 Search query updated:', e.target.value);
@@ -644,7 +616,7 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
               {searchResults.length > 0 && (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-300">
-                    Search Results ({searchResults.length} Videos with Transcript Availability)
+                    Your Videos ({searchResults.length} Videos with Transcript Availability)
                   </Label>
                   <div className="max-h-48 overflow-y-auto space-y-2">
                     {searchResults.map((video) => (
@@ -690,24 +662,10 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
                 </div>
               )}
             </>
-          ) : (
-            <div>
-              <Label htmlFor="manual-style" className="text-sm font-medium text-gray-300 mb-2 block">
-                Describe Your Preferred Communication Style
-              </Label>
-              <Textarea
-                id="manual-style"
-                placeholder="Describe the tone, pace, vocabulary, and communication style you prefer. For example: 'I prefer a casual, conversational tone with simple language and short sentences. I like when explanations are friendly and encouraging...'"
-                value={manualStyleDescription}
-                onChange={(e) => setManualStyleDescription(e.target.value)}
-                className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500 min-h-[100px]"
-                rows={4}
-              />
-            </div>
-          )}
+          ) : null}
 
-          {/* Timestamp inputs - only for YouTube and search modes */}
-          {(inputMode === 'youtube' || inputMode === 'search') && (
+          {/* Timestamp inputs - only for search mode */}
+          {inputMode === 'search' && (
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -743,12 +701,12 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
             </>
           )}
 
-          {/* Analyze Button - only for YouTube and search modes */}
-          {(inputMode === 'youtube' || inputMode === 'search') && (
+          {/* Analyze Button - only for search mode */}
+          {inputMode === 'search' && (
             <>
               <Button
                 onClick={handleAnalyze}
-                disabled={!youtubeUrl || isAnalyzing || (inputMode === 'search' && !isAuthenticated)}
+                disabled={!youtubeUrl || isAnalyzing || !isAuthenticated}
                 className="w-full bg-purple-500 hover:bg-purple-600"
               >
                 {isAnalyzing ? (
@@ -772,7 +730,7 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
                 )}
                 
                 <p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded p-2">
-                  ⚠️ YouTube transcript access is limited by YouTube's API policy. Only works with your own videos or videos that explicitly allow third-party caption access.
+                  ⚠️ You can only access transcripts from your own uploaded YouTube videos for privacy and copyright reasons.
                 </p>
                 
                 {customYouTubeApiKey && (
@@ -792,7 +750,7 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
           )}
 
           {/* Transcript Preview */}
-          {transcriptData && (inputMode === 'youtube' || inputMode === 'search') && (
+          {transcriptData && inputMode === 'search' && (
             <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4">
               <h4 className="font-medium text-green-400 mb-2">✓ Transcript Successfully Fetched</h4>
               <div className="text-sm text-gray-300">
@@ -880,7 +838,7 @@ export default function StylePersonalizationModal({ open, onOpenChange, onDataUp
           <Button
             onClick={handleConfirm}
             disabled={
-              (inputMode === 'youtube' || inputMode === 'search') ? !styleAnalysis : !manualStyleDescription.trim()
+              inputMode === 'search' ? !styleAnalysis : !manualStyleDescription.trim()
             }
             className="flex-1 bg-purple-500 hover:bg-purple-600"
           >

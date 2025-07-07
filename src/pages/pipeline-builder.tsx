@@ -20,17 +20,15 @@ export default function PipelineBuilder() {
         const savedNodes = localStorage.getItem('pipeline-builder-nodes');
         if (savedNodes) {
           const parsed = JSON.parse(savedNodes);
-          console.log('📝 Initial load: Found saved nodes in localStorage:', parsed.length);
-          console.log('📍 Initial load: Positions from localStorage:', parsed.map((n: any) => ({ id: n.id, position: n.position })));
           return parsed;
         }
       } catch (error) {
         console.error('❌ Error loading saved nodes:', error);
       }
     }
-    
+
     // Default state if no saved data
-    console.log('🎆 Initial load: Using default prompt node');
+    // console.log('🎆 Initial load: Using default prompt node');
     return [
       {
         id: 'prompt-1',
@@ -46,21 +44,26 @@ export default function PipelineBuilder() {
       }
     ];
   });
-  
+
+  useEffect(() => {
+    console.log("🥳🍾 Just detected that nodes changed", nodes)
+  }, [nodes]);
+
+
   const [connections, setConnections] = useState<PipelineConnection[]>(() => {
     if (typeof window !== 'undefined') {
       try {
         const savedConnections = localStorage.getItem('pipeline-builder-connections');
         if (savedConnections) {
           const parsed = JSON.parse(savedConnections);
-          console.log('🔗 Initial load: Found saved connections in localStorage:', parsed.length);
+          // console.log('🔗 Initial load: Found saved connections in localStorage:', parsed.length);
           return parsed;
         }
       } catch (error) {
         console.error('❌ Error loading saved connections:', error);
       }
     }
-    
+
     return [];
   });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -80,7 +83,7 @@ export default function PipelineBuilder() {
       try {
         const saved = localStorage.getItem('pipeline-builder-evidence-data');
         if (saved) {
-          console.log('📊 Initial load: Found saved evidence data');
+          // console.log('📊 Initial load: Found saved evidence data');
           return JSON.parse(saved);
         }
       } catch (error) {
@@ -89,13 +92,13 @@ export default function PipelineBuilder() {
     }
     return null;
   });
-  
+
   const [styleData, setStyleData] = useState<StyleData | null>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('pipeline-builder-style-data');
         if (saved) {
-          console.log('🎨 Initial load: Found saved style data');
+          // console.log('🎨 Initial load: Found saved style data');
           return JSON.parse(saved);
         }
       } catch (error) {
@@ -104,13 +107,13 @@ export default function PipelineBuilder() {
     }
     return null;
   });
-  
+
   const [personalData, setPersonalData] = useState<PersonalHealthData | null>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('pipeline-builder-personal-data');
         if (saved) {
-          console.log('👨‍⚕️ Initial load: Found saved personal data');
+          // console.log('👨‍⚕️ Initial load: Found saved personal data');
           return JSON.parse(saved);
         }
       } catch (error) {
@@ -119,13 +122,13 @@ export default function PipelineBuilder() {
     }
     return null;
   });
-  
+
   const [outputSelectorData, setOutputSelectorData] = useState<OutputSelectorData | null>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('pipeline-builder-output-selector-data');
         if (saved) {
-          console.log('📺 Initial load: Found saved output selector data');
+          // console.log('📺 Initial load: Found saved output selector data');
           return JSON.parse(saved);
         }
       } catch (error) {
@@ -134,13 +137,13 @@ export default function PipelineBuilder() {
     }
     return null;
   });
-  
+
   const [selectedService, setSelectedService] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('pipeline-builder-selected-service');
         if (saved) {
-          console.log('⚙️ Initial load: Found saved selected service:', saved);
+          // console.log('⚙️ Initial load: Found saved selected service:', saved);
           return saved;
         }
       } catch (error) {
@@ -149,13 +152,13 @@ export default function PipelineBuilder() {
     }
     return 'gemini';
   });
-  
+
   const [customApiKey, setCustomApiKey] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('pipeline-builder-custom-api-key');
         if (saved) {
-          console.log('🔑 Initial load: Found saved custom API key');
+          // console.log('🔑 Initial load: Found saved custom API key');
           return saved;
         }
       } catch (error) {
@@ -164,21 +167,7 @@ export default function PipelineBuilder() {
     }
     return null;
   });
-  
-  const [customYouTubeApiKey, setCustomYouTubeApiKey] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('pipeline-builder-custom-youtube-api-key');
-        if (saved) {
-          console.log('📺 Initial load: Found saved custom YouTube API key');
-          return saved;
-        }
-      } catch (error) {
-        console.error('❌ Error loading saved custom YouTube API key:', error);
-      }
-    }
-    return null;
-  });
+
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStatus, setGenerationStatus] = useState("");
 
@@ -193,7 +182,7 @@ export default function PipelineBuilder() {
       try {
         const saved = localStorage.getItem('pipeline-builder-prompt-text');
         if (saved) {
-          console.log('📜 Initial load: Found saved prompt text');
+          // console.log('📜 Initial load: Found saved prompt text');
           return saved;
         }
       } catch (error) {
@@ -213,63 +202,60 @@ export default function PipelineBuilder() {
     outputSelectorData: 'pipeline-builder-output-selector-data',
     selectedService: 'pipeline-builder-selected-service',
     customApiKey: 'pipeline-builder-custom-api-key',
-    customYouTubeApiKey: 'pipeline-builder-custom-youtube-api-key',
     promptText: 'pipeline-builder-prompt-text',
   };
 
   // Save state to localStorage
   const saveToLocalStorage = useCallback(() => {
     try {
-      console.log('💾 Attempting to save state to localStorage...', {
-        nodesCount: nodes.length,
-        connectionsCount: connections.length,
-        hasEvidenceData: !!evidenceData,
-        hasStyleData: !!styleData,
-        hasPersonalData: !!personalData,
-        hasOutputSelectorData: !!outputSelectorData,
-        selectedService,
-        hasCustomApiKey: !!customApiKey,
-        hasCustomYouTubeApiKey: !!customYouTubeApiKey,
-        promptTextLength: promptText.length
-      });
-      
+      // console.log('💾 Attempting to save state to localStorage...', {
+      //   nodesCount: nodes.length,
+      //   connectionsCount: connections.length,
+      //   hasEvidenceData: !!evidenceData,
+      //   hasStyleData: !!styleData,
+      //   hasPersonalData: !!personalData,
+      //   hasOutputSelectorData: !!outputSelectorData,
+      //   selectedService,
+      //   hasCustomApiKey: !!customApiKey,
+      //   promptTextLength: promptText.length
+      // });
+
       const nodesWithPositions = nodes.map(node => ({
         ...node,
         position: node.position // Ensure positions are explicitly saved
       }));
-      
-      console.log('💾 About to save nodes:', nodesWithPositions.map(n => ({ id: n.id, type: n.type, position: n.position })));
-      
+
+      // console.log('💾 About to save nodes:', nodesWithPositions.map(n => ({ id: n.id, type: n.type, position: n.position })));
+
       localStorage.setItem(STORAGE_KEYS.nodes, JSON.stringify(nodesWithPositions));
-      
+
       // Verify what was actually saved
       const savedData = localStorage.getItem(STORAGE_KEYS.nodes);
       const parsedSaved = JSON.parse(savedData!);
-      console.log('📍 Verified saved positions:', parsedSaved.map((n: any) => ({ id: n.id, position: n.position })));
+      // console.log('📍 Verified saved positions:', parsedSaved.map((n: any) => ({ id: n.id, position: n.position })));
       localStorage.setItem(STORAGE_KEYS.connections, JSON.stringify(connections));
-      
+
       if (evidenceData) localStorage.setItem(STORAGE_KEYS.evidenceData, JSON.stringify(evidenceData));
       if (styleData) localStorage.setItem(STORAGE_KEYS.styleData, JSON.stringify(styleData));
       if (personalData) localStorage.setItem(STORAGE_KEYS.personalData, JSON.stringify(personalData));
       if (outputSelectorData) localStorage.setItem(STORAGE_KEYS.outputSelectorData, JSON.stringify(outputSelectorData));
-      
+
       localStorage.setItem(STORAGE_KEYS.selectedService, selectedService);
       if (customApiKey) localStorage.setItem(STORAGE_KEYS.customApiKey, customApiKey);
-      if (customYouTubeApiKey) localStorage.setItem(STORAGE_KEYS.customYouTubeApiKey, customYouTubeApiKey);
       localStorage.setItem(STORAGE_KEYS.promptText, promptText);
-      
+
       setLastSaveTime(new Date());
-      console.log('✅ State successfully saved to localStorage');
+      // console.log('✅ State successfully saved to localStorage');
     } catch (error) {
       console.error('❌ Failed to save state to localStorage:', error);
     }
-  }, [nodes, connections, evidenceData, styleData, personalData, outputSelectorData, selectedService, customApiKey, customYouTubeApiKey, promptText]);
+  }, [nodes, connections, evidenceData, styleData, personalData, outputSelectorData, selectedService, customApiKey, promptText]);
 
   // Load state from localStorage
   const loadFromLocalStorage = useCallback(() => {
     try {
-      console.log('🔍 Checking localStorage for saved data...');
-      
+      // console.log('🔍 Checking localStorage for saved data...');
+
       const savedNodes = localStorage.getItem(STORAGE_KEYS.nodes);
       const savedConnections = localStorage.getItem(STORAGE_KEYS.connections);
       const savedEvidenceData = localStorage.getItem(STORAGE_KEYS.evidenceData);
@@ -278,74 +264,67 @@ export default function PipelineBuilder() {
       const savedOutputSelectorData = localStorage.getItem(STORAGE_KEYS.outputSelectorData);
       const savedSelectedService = localStorage.getItem(STORAGE_KEYS.selectedService);
       const savedCustomApiKey = localStorage.getItem(STORAGE_KEYS.customApiKey);
-      const savedCustomYouTubeApiKey = localStorage.getItem(STORAGE_KEYS.customYouTubeApiKey);
       const savedPromptText = localStorage.getItem(STORAGE_KEYS.promptText);
-      
-      console.log('📊 localStorage contents check:', {
-        hasNodes: !!savedNodes,
-        hasConnections: !!savedConnections,
-        hasEvidenceData: !!savedEvidenceData,
-        hasStyleData: !!savedStyleData,
-        hasPersonalData: !!savedPersonalData,
-        hasOutputSelectorData: !!savedOutputSelectorData,
-        hasSelectedService: !!savedSelectedService,
-        hasCustomApiKey: !!savedCustomApiKey,
-        hasCustomYouTubeApiKey: !!savedCustomYouTubeApiKey,
-        hasPromptText: !!savedPromptText
-      });
+
+      // console.log('📊 localStorage contents check:', {
+      //   hasNodes: !!savedNodes,
+      //   hasConnections: !!savedConnections,
+      //   hasEvidenceData: !!savedEvidenceData,
+      //   hasStyleData: !!savedStyleData,
+      //   hasPersonalData: !!savedPersonalData,
+      //   hasOutputSelectorData: !!savedOutputSelectorData,
+      //   hasSelectedService: !!savedSelectedService,
+      //   hasCustomApiKey: !!savedCustomApiKey,
+      //   hasPromptText: !!savedPromptText
+      // });
 
       if (savedNodes) {
         const parsedNodes = JSON.parse(savedNodes);
         setNodes(parsedNodes);
-        console.log('📝 Restored nodes from localStorage:', parsedNodes.length, 'nodes');
+        // console.log('📝 Restored nodes from localStorage:', parsedNodes.length, 'nodes');
       }
-      
+
       if (savedConnections) {
         const parsedConnections = JSON.parse(savedConnections);
         setConnections(parsedConnections);
-        console.log('🔗 Restored connections from localStorage:', parsedConnections.length, 'connections');
+        // console.log('🔗 Restored connections from localStorage:', parsedConnections.length, 'connections');
       }
-      
+
       if (savedEvidenceData) {
         setEvidenceData(JSON.parse(savedEvidenceData));
-        console.log('📊 Restored evidence data from localStorage');
+        // console.log('📊 Restored evidence data from localStorage');
       }
-      
+
       if (savedStyleData) {
         setStyleData(JSON.parse(savedStyleData));
-        console.log('🎨 Restored style data from localStorage');
+        // console.log('🎨 Restored style data from localStorage');
       }
-      
+
       if (savedPersonalData) {
         setPersonalData(JSON.parse(savedPersonalData));
-        console.log('👨‍⚕️ Restored personal data from localStorage');
+        // console.log('👨‍⚕️ Restored personal data from localStorage');
       }
-      
+
       if (savedOutputSelectorData) {
         setOutputSelectorData(JSON.parse(savedOutputSelectorData));
-        console.log('📺 Restored output selector data from localStorage');
+        // console.log('📺 Restored output selector data from localStorage');
       }
-      
+
       if (savedSelectedService) {
         setSelectedService(savedSelectedService);
-        console.log('⚙️ Restored selected service from localStorage:', savedSelectedService);
+        // console.log('⚙️ Restored selected service from localStorage:', savedSelectedService);
       }
-      
+
       if (savedCustomApiKey) {
         setCustomApiKey(savedCustomApiKey);
-        console.log('🔑 Restored custom API key from localStorage');
+        // console.log('🔑 Restored custom API key from localStorage');
       }
-      
-      if (savedCustomYouTubeApiKey) {
-        setCustomYouTubeApiKey(savedCustomYouTubeApiKey);
-        console.log('📺 Restored custom YouTube API key from localStorage');
-      }
-      
+
       if (savedPromptText) {
         setPromptText(savedPromptText);
-        console.log('📜 Restored prompt text from localStorage');
+        // console.log('📜 Restored prompt text from localStorage');
       }
-      
+
     } catch (error) {
       console.error('❌ Failed to load state from localStorage:', error);
     }
@@ -357,7 +336,7 @@ export default function PipelineBuilder() {
       Object.values(STORAGE_KEYS).forEach(key => {
         localStorage.removeItem(key);
       });
-      console.log('🗑️ Cleared all pipeline state from localStorage');
+      // console.log('🗑️ Cleared all pipeline state from localStorage');
     } catch (error) {
       console.error('❌ Failed to clear localStorage:', error);
     }
@@ -365,40 +344,39 @@ export default function PipelineBuilder() {
 
   // Auto-save state changes with shorter delay for frequent updates
   useEffect(() => {
-    console.log('🔄 Auto-save triggered by state change');
+    // console.log('🔄 Auto-save triggered by state change');
     const timeoutId = setTimeout(() => {
-      console.log('⏰ Auto-save timer executing...');
+      // console.log('⏰ Auto-save timer executing...');
       saveToLocalStorage();
     }, 300); // Shorter delay for more responsive saves
-    
+
     return () => {
-      console.log('❌ Auto-save timer cleared');
+      // console.log('❌ Auto-save timer cleared');
       clearTimeout(timeoutId);
     };
   }, [saveToLocalStorage]);
 
   // Debug: Log when component mounts to verify state loading
   useEffect(() => {
-    console.log('🚀 PipelineBuilder mounted with state:', {
-      nodesCount: nodes.length,
-      connectionsCount: connections.length,
-      hasEvidenceData: !!evidenceData,
-      hasStyleData: !!styleData,
-      hasPersonalData: !!personalData,
-      hasOutputSelectorData: !!outputSelectorData,
-      selectedService,
-      hasCustomApiKey: !!customApiKey,
-      hasCustomYouTubeApiKey: !!customYouTubeApiKey
-    });
+    // console.log('🚀 PipelineBuilder mounted with state:', {
+    //   nodesCount: nodes.length,
+    //   connectionsCount: connections.length,
+    //   hasEvidenceData: !!evidenceData,
+    //   hasStyleData: !!styleData,
+    //   hasPersonalData: !!personalData,
+    //   hasOutputSelectorData: !!outputSelectorData,
+    //   selectedService,
+    //   hasCustomApiKey: !!customApiKey
+    // });
   }, []); // Empty dependency array ensures this runs only once on mount
-  
+
   // Debug: Track when nodes state changes
   useEffect(() => {
-    console.log('🔄 Pipeline Builder: Nodes state changed:', {
-      count: nodes.length,
-      positions: nodes.map(n => ({ id: n.id, type: n.type, position: n.position }))
-    });
-    console.log('💾 This should trigger auto-save...');
+    // console.log('🔄 Pipeline Builder: Nodes state changed:', {
+    //   count: nodes.length,
+    //   positions: nodes.map(n => ({ id: n.id, type: n.type, position: n.position }))
+    // });
+    // console.log('💾 This should trigger auto-save...');
   }, [nodes]);
 
   // Cleanup uploaded files when component unmounts or page is closed
@@ -427,69 +405,102 @@ export default function PipelineBuilder() {
 
   // Update connected components when connections change
   useEffect(() => {
-    console.log('🎯 PIPELINE BUILDER: useEffect triggered');
-    console.log('Current connections in useEffect:', connections);
-    console.log('Current nodes in useEffect:', nodes.map(n => ({ id: n.id, type: n.type })));
-    
+
     setNodes(prevNodes => {
       const promptNode = prevNodes.find(n => n.type === 'prompt');
       if (!promptNode) return prevNodes;
 
-      // Find connected component types - use prevNodes for consistency
+      // Find connected component types - only include connections to existing nodes
       const connectedComponentTypes = connections
         .filter(conn => conn.target === promptNode.id)
         .map(conn => {
           // Look up source node from prevNodes (current state)
           const sourceNode = prevNodes.find(n => n.id === conn.source);
-          return sourceNode?.type;
+          if (!sourceNode) {
+            // console.log(`⚠️ Connection references deleted node: ${conn.source}, ignoring...`);
+            return null;
+          }
+          return sourceNode.type;
         })
         .filter(Boolean);
 
-      // Also track connected components with their specific IDs
+      // Also track connected components with their specific IDs - only include existing nodes
       const connectedComponentsWithIds = connections
         .filter(conn => conn.target === promptNode.id)
         .map(conn => {
           const sourceNode = prevNodes.find(n => n.id === conn.source);
-          return sourceNode ? { id: sourceNode.id, type: sourceNode.type } : null;
+          if (!sourceNode) {
+            // console.log(`⚠️ Connection references deleted node: ${conn.source}, ignoring...`);
+            return null;
+          }
+          return { id: sourceNode.id, type: sourceNode.type };
         })
-        .filter(Boolean) as Array<{id: string, type: string}>;
-
-      console.log('📊 CALCULATED CONNECTIONS:');
-      console.log('Connected component types:', connectedComponentTypes);
-      console.log('Connected components with IDs:', connectedComponentsWithIds);
-
+        .filter(Boolean) as Array<{ id: string, type: string }>;
 
       // Only update if the connected components actually changed
       const currentConnectedComponents = promptNode.data.connectedComponents || [];
       const currentConnectedComponentsWithIds = promptNode.data.connectedComponentsWithIds || [];
-      
+
       const typesChanged = JSON.stringify(currentConnectedComponents.sort()) !== JSON.stringify(connectedComponentTypes.sort());
       const idsChanged = JSON.stringify(currentConnectedComponentsWithIds) !== JSON.stringify(connectedComponentsWithIds);
-      
-      if (!typesChanged && !idsChanged) {
+
+      // Check if this is an immediate update from node deletion
+      const hasImmediateUpdate = promptNode.data._immediateUpdate;
+      const deletedNodeId = promptNode.data._deletedNodeId;
+
+      // Debug logging for deletion scenario
+      console.log('🔍 PROMPT UPDATE CHECK:', {
+        currentCount: currentConnectedComponentsWithIds.length,
+        newCount: connectedComponentsWithIds.length,
+        typesChanged,
+        idsChanged,
+        hasImmediateUpdate,
+        deletedNodeId,
+        currentIds: currentConnectedComponentsWithIds.map(c => c.id),
+        newIds: connectedComponentsWithIds.map(c => c.id)
+      });
+
+      // Force update if we have an immediate update flag or if components changed
+      if (!typesChanged && !idsChanged && !hasImmediateUpdate) {
+        console.log('❌ No changes detected, skipping prompt update');
         return prevNodes; // No change needed
       }
+
+      // If we have an immediate update, force the update regardless of comparison
+      if (hasImmediateUpdate) {
+        console.log('⚡ IMMEDIATE UPDATE DETECTED - forcing prompt update');
+      }
+
+      console.log('✅ Changes detected, updating prompt node');
 
       // Update the prompt node's connected components
       const updatedNodes = prevNodes.map(node =>
         node.type === 'prompt'
-          ? { 
-              ...node, 
-              data: { 
-                ...node.data, 
-                connectedComponents: connectedComponentTypes,
-                connectedComponentsWithIds: connectedComponentsWithIds
-              } 
+          ? {
+            ...node,
+            data: {
+              ...node.data,
+              // For immediate updates, keep the already-calculated data from handleNodeDelete
+              // For normal updates, use the newly calculated data
+              connectedComponents: hasImmediateUpdate ? node.data.connectedComponents : connectedComponentTypes,
+              connectedComponentsWithIds: hasImmediateUpdate ? node.data.connectedComponentsWithIds : connectedComponentsWithIds,
+              // Clear immediate update flags after processing
+              _immediateUpdate: undefined,
+              _deletedNodeId: undefined,
+              // Force re-render with new timestamp
+              _updateTimestamp: Date.now()
             }
+          }
           : node
       );
-      
-      console.log('🚀 PIPELINE BUILDER: About to return updated nodes');
-      console.log('Updated prompt node data:', updatedNodes.find(n => n.type === 'prompt')?.data);
-      
+
+      // Debug logs for prompt node updates (crucial for deletion bug hunt)
+      const updatedPromptNode = updatedNodes.find(n => n.type === 'prompt');
+      console.log('🔗 Updated prompt connectedComponentsWithIds:', updatedPromptNode?.data.connectedComponentsWithIds);
+
       return updatedNodes;
     });
-  }, [connections]);
+  }, [connections, nodes]);
 
   const handleNodeClick = (nodeId: string, nodeType: string) => {
     setSelectedNodeForConfig(nodeId);
@@ -523,9 +534,6 @@ export default function PipelineBuilder() {
       )
     );
   };
-
-
-
 
   const handleGenerate = () => {
     // Check if we have a prompt node and basic requirements
@@ -644,37 +652,6 @@ export default function PipelineBuilder() {
     }
   };
 
-
-  const isConnectedPipeline = (startNodeId: string, endNodeId: string): boolean => {
-    // Simple path finding - check if there's a route from start to end
-    const visited = new Set<string>();
-    const queue = [startNodeId];
-
-    while (queue.length > 0) {
-      const currentNodeId = queue.shift()!;
-
-      if (currentNodeId === endNodeId) {
-        return true;
-      }
-
-      if (visited.has(currentNodeId)) {
-        continue;
-      }
-
-      visited.add(currentNodeId);
-
-      // Find all nodes this node connects to
-      const outgoingConnections = connections.filter(conn => conn.source === currentNodeId);
-      for (const conn of outgoingConnections) {
-        if (!visited.has(conn.target)) {
-          queue.push(conn.target);
-        }
-      }
-    }
-
-    return false;
-  };
-
   return (
     <div className="h-screen flex bg-gray-900 text-white overflow-hidden relative">
       {/* Top Right Controls */}
@@ -685,7 +662,7 @@ export default function PipelineBuilder() {
             💾 Saved {lastSaveTime.toLocaleTimeString()}
           </div>
         )}
-        
+
         <Button
           variant="outline"
           onClick={() => setSettingsModalOpen(true)}
@@ -711,32 +688,12 @@ export default function PipelineBuilder() {
       <CanvasWorkspace
         nodes={nodes}
         connections={connections}
-        onNodesChange={(newNodes) => {
-          console.log('💾 Pipeline Builder: onNodesChange called with:', newNodes.length, 'nodes');
-          console.log('📍 New positions:', newNodes.map(n => ({ id: n.id, position: n.position })));
-          console.log('📍 Current positions:', nodes.map(n => ({ id: n.id, position: n.position })));
-          
-          // Check if positions actually changed
-          const positionsChanged = newNodes.some((newNode, index) => {
-            const oldNode = nodes[index];
-            return oldNode && (
-              Math.abs(newNode.position.x - oldNode.position.x) > 0.1 ||
-              Math.abs(newNode.position.y - oldNode.position.y) > 0.1
-            );
-          });
-          
-          console.log('📍 Positions actually changed:', positionsChanged);
-          
-          setNodes(newNodes);
-        }}
+        onNodesChange={setNodes}
         onConnectionsChange={setConnections}
         onNodeClick={handleNodeClick}
         onGenerate={handleGenerate}
         onSelectionChange={setSelectedComponentType}
-        onHoverChange={(type) => {
-          console.log(`📋 Pipeline builder hover change: "${type}"`);
-          setHoveredComponentType(type);
-        }}
+        onHoverChange={setHoveredComponentType}
         evidenceData={evidenceData}
         styleData={styleData}
         personalData={personalData}
@@ -766,7 +723,6 @@ export default function PipelineBuilder() {
         open={styleModalOpen}
         onOpenChange={setStyleModalOpen}
         customApiKey={customApiKey}
-        customYouTubeApiKey={customYouTubeApiKey}
         onDataUpdate={(data) => {
           setStyleData(data);
           if (selectedNodeForConfig) {
@@ -823,7 +779,7 @@ export default function PipelineBuilder() {
         currentService={selectedService}
         onServiceChange={setSelectedService}
         onApiKeyUpdate={setCustomApiKey}
-        onYouTubeApiKeyUpdate={setCustomYouTubeApiKey}
+        currentApiKey={customApiKey}
         onResetStorage={() => {
           clearLocalStorage();
           // Reset all state to initial values
@@ -848,10 +804,8 @@ export default function PipelineBuilder() {
           setOutputSelectorData(null);
           setSelectedService('gemini');
           setCustomApiKey(null);
-          setCustomYouTubeApiKey(null);
           setPromptText('You are a health content generation assistant with access to MCP tools.\n\nConnect components to access their data through the MCP protocol.');
           setLastSaveTime(null);
-          console.log('✨ Pipeline reset to initial state');
         }}
       />
 

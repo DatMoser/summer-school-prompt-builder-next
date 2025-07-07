@@ -58,12 +58,7 @@ function CanvasWorkspaceContent({
   onPromptChange,
   selectedComponentType,
 }: CanvasWorkspaceProps) {
-  
-  // Debug: Log received props for position tracking
-  console.log('📦 CANVAS WORKSPACE RECEIVED PROPS');
-  console.log('Nodes positions received:', nodes.map(n => ({ id: n.id, position: n.position })));
-  // console.log('Connections:', connections);
-  // console.log('Prompt node data:', nodes.find(n => n.type === 'prompt')?.data);
+
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowNodes, setReactFlowNodes, onNodesChangeRF] = useNodesState([]);
   const [reactFlowEdges, setReactFlowEdges, onEdgesChangeRF] = useEdgesState([]);
@@ -84,43 +79,37 @@ function CanvasWorkspaceContent({
   // Process pending position changes after a delay
   useEffect(() => {
     if (pendingPositionChanges.length === 0) return;
-    
-    console.log('🔄 Processing pending position changes:', pendingPositionChanges.length);
-    
+
+
     const timeoutId = setTimeout(() => {
-      console.log('🔄 Processing position updates via useEffect...');
-      
       // Get current ReactFlow positions directly
       setReactFlowNodes(currentRFNodes => {
         // Get the most current nodes and apply changes from ReactFlow positions
         const updatedNodes = currentNodes.current.map(node => {
           const rfNode = currentRFNodes.find(rf => rf.id === node.id);
           if (rfNode) {
-            console.log('📦 Syncing position for node:', node.id, 'from:', node.position, 'to:', rfNode.position);
             return { ...node, position: rfNode.position };
           }
           return node;
         });
-        
-        console.log('💾 Calling onNodesChange with ReactFlow positions:', updatedNodes.map(n => ({ id: n.id, position: n.position })));
+
         justUpdatedPositions.current = true;
         setPendingPositionChanges([]); // Clear pending changes
-        
+
         // Defer the state update to avoid setState during render
         setTimeout(() => {
           onNodesChange(updatedNodes);
         }, 0);
-        
+
         // Clear the pending flag after update
         setTimeout(() => {
           pendingPositionUpdate.current = false;
-          console.log('🔓 Position update complete, sync allowed again');
         }, 100);
-        
+
         return currentRFNodes; // Don't modify ReactFlow state
       });
     }, 50);
-    
+
     return () => clearTimeout(timeoutId);
   }, [pendingPositionChanges, onNodesChange]);
 
@@ -139,26 +128,69 @@ function CanvasWorkspaceContent({
 
   // Handle node deletion
   const handleNodeDelete = useCallback((nodeId: string) => {
-    // Remove any connections involving this node FIRST
-    const updatedConnections = connections.filter(conn => 
+    // Remove the node first
+    const updatedNodes = nodes.filter(node => node.id !== nodeId);
+
+    // Then remove any connections involving this node
+    const updatedConnections = connections.filter(conn =>
       conn.source !== nodeId && conn.target !== nodeId
     );
+
+    // IMMEDIATE PROMPT UPDATE: Update the prompt node's connected components right away
+    const finalNodes = updatedNodes.map(node => {
+      if (node.type === 'prompt') {
+        // Calculate new connected components based on remaining connections
+        const remainingConnections = updatedConnections.filter(conn => conn.target === node.id);
+        const connectedComponentTypes = remainingConnections
+          .map(conn => {
+            const sourceNode = updatedNodes.find(n => n.id === conn.source);
+            return sourceNode ? sourceNode.type : null;
+          })
+          .filter(Boolean);
+
+        const connectedComponentsWithIds = remainingConnections
+          .map(conn => {
+            const sourceNode = updatedNodes.find(n => n.id === conn.source);
+            return sourceNode ? { id: sourceNode.id, type: sourceNode.type } : null;
+          })
+          .filter(Boolean) as Array<{ id: string, type: string }>;
+
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            connectedComponents: connectedComponentTypes,
+            connectedComponentsWithIds: connectedComponentsWithIds,
+            // Force re-render by updating timestamp and marking as immediate update
+            _updateTimestamp: Date.now(),
+            _immediateUpdate: true,
+            _deletedNodeId: nodeId
+          }
+        };
+      }
+      return node;
+    });
+
+    // Set flag to prevent sync interference
+    justUpdatedPositions.current = true;
+
+    // ALSO directly update ReactFlow nodes to ensure immediate removal
+    setReactFlowNodes(current => {
+      const filtered = current.filter(node => node.id !== nodeId);
+      return filtered;
+    });
+
+    // Update both nodes and connections simultaneously
+    onNodesChange(finalNodes);
     onConnectionsChange(updatedConnections);
-    
-    // Then remove the node
-    const updatedNodes = nodes.filter(node => node.id !== nodeId);
-    onNodesChange(updatedNodes);
-  }, [nodes, connections, onNodesChange, onConnectionsChange]);
+  }, [nodes, connections, onNodesChange, onConnectionsChange, setReactFlowNodes]);
 
   // Handle edge deletion - directly update both states to avoid sync issues
   const handleEdgeDelete = useCallback((edgeId: string) => {
-    console.log('🗑️ MANUAL EDGE DELETE called for:', edgeId);
-    
     // Update our connections state first
     const updatedConnections = connections.filter(conn => conn.id !== edgeId);
-    console.log('Updated connections (manual delete):', updatedConnections);
     onConnectionsChange(updatedConnections);
-    
+
     // Then update ReactFlow's edge state
     onEdgesChangeRF([{ id: edgeId, type: 'remove' }]);
   }, [connections, onConnectionsChange, onEdgesChangeRF]);
@@ -166,7 +198,7 @@ function CanvasWorkspaceContent({
   // Generate configuration content for display
   const getConfigContent = useCallback((nodeType: string, configured: boolean) => {
     if (!configured) return undefined;
-    
+
     switch (nodeType) {
       case 'evidence-input':
         return evidenceData ? `File: ${evidenceData.fileName}` : undefined;
@@ -186,7 +218,7 @@ function CanvasWorkspaceContent({
     return pipelineNodes.map(node => {
       // Find the active connection for this node (if any)
       const activeConnection = connections.find(conn => conn.source === node.id);
-      
+
       const baseData = {
         ...node.data,
         configContent: getConfigContent(node.type, node.data.configured),
@@ -195,7 +227,6 @@ function CanvasWorkspaceContent({
         connected: !!activeConnection,
         activeHandle: activeConnection?.sourceHandle,
         onHover: (hovering: boolean) => {
-          console.log(`🔄 Canvas onHover: nodeType="${node.type}", hovering=${hovering}`);
           if (onHoverChange) {
             onHoverChange(hovering ? node.type : null);
           }
@@ -204,27 +235,48 @@ function CanvasWorkspaceContent({
 
       // Special handling for prompt nodes
       if (node.type === 'prompt') {
-        console.log('🔧 CONVERTING PROMPT NODE DATA');
-        console.log('Node data.connectedComponentsWithIds:', node.data.connectedComponentsWithIds);
-        console.log('Node data.connectedComponents:', node.data.connectedComponents);
-        
+        // Create a connection-based key for forcing re-renders
+        const connectionIds = (node.data.connectedComponentsWithIds || []).map(c => c.id).sort().join(',');
+
+        // Include immediate update flags in the key to force re-mount on deletion
+        const immediateUpdateKey = node.data._immediateUpdate ? `immediate-${node.data._updateTimestamp}` : '';
+        const deletedNodeKey = node.data._deletedNodeId ? `deleted-${node.data._deletedNodeId}` : '';
+
+        // Create a more aggressive render key for the entire prompt node
+        const promptNodeKey = `prompt-${node.id}-${connectionIds}-${immediateUpdateKey}-${deletedNodeKey}-${node.data._updateTimestamp || 0}`;
+
         return {
           id: node.id,
           type: node.type,
           position: node.position,
+          // FORCE COMPLETE RE-MOUNT by changing the key - especially on deletions
+          key: promptNodeKey,
           data: {
             ...baseData,
             prompt: promptText || node.data.prompt || '',
             connectedComponents: node.data.connectedComponents || [],
             connectedComponentsWithIds: node.data.connectedComponentsWithIds || [],
-            onPromptChange: onPromptChange || (() => {}),
+            onPromptChange: onPromptChange || (() => { }),
             onGenerate: onGenerate,
             customText: node.data.customText || '',
             selectedComponentType: selectedComponentType,
+            // Add a unique key to force React to see this as a new object when connections change
+            _renderKey: `${Date.now()}-${(node.data.connectedComponentsWithIds || []).length}`,
+            // Add a timestamp that forces re-render when connections change
+            _updateTimestamp: node.data._updateTimestamp || Date.now(),
+            // Add connection-based key to ensure React detects changes
+            _connectionKey: connectionIds,
+            // Add prompt node key for debugging
+            _promptNodeKey: promptNodeKey,
+            // Pass through immediate update flags to force re-render
+            _immediateUpdate: node.data._immediateUpdate,
+            _deletedNodeId: node.data._deletedNodeId,
+            // Force new object reference on immediate updates
+            ...(node.data._immediateUpdate ? { _forceUpdate: Date.now() } : {}),
             onCustomTextChange: (text: string) => {
               // Update the node's custom text in the pipeline state
-              const updatedNodes = nodes.map(n => 
-                n.id === node.id 
+              const updatedNodes = nodes.map(n =>
+                n.id === node.id
                   ? { ...n, data: { ...n.data, customText: text } }
                   : n
               );
@@ -263,76 +315,100 @@ function CanvasWorkspaceContent({
   useEffect(() => {
     // Don't sync nodes while dragging to prevent interference
     if (isDragging.current) {
-      console.log('⏸️ Skipping sync - currently dragging');
       return;
     }
-    
+
     // Don't sync if we just updated positions to prevent position reset
     if (justUpdatedPositions.current) {
-      console.log('⏸️ Skipping sync - just updated positions from drag');
       justUpdatedPositions.current = false;
       return;
     }
-    
+
     // Don't sync if we have a pending position update
     if (pendingPositionUpdate.current) {
-      console.log('⏸️ Skipping sync - pending position update');
       return;
     }
-    
-    console.log('🔄 Node sync useEffect triggered. Pipeline nodes count:', nodes.length);
-    console.log('🔄 Sync triggered by - selectedComponentType:', selectedComponentType);
-    
-    // Only log when nodes actually change structure or selectedComponentType changes
-    const promptNode = nodes.find(n => n.type === 'prompt');
-    const connectionCount = promptNode?.data.connectedComponentsWithIds?.length || 0;
-    console.log(`🔄 SYNCING REACTFLOW NODES - ${connectionCount} connections, selectedComponentType: ${selectedComponentType}`);
-    console.log('📍 Pipeline nodes positions:', nodes.map(n => ({ id: n.id, position: n.position })));
-    
+
     const rfNodes = convertToReactFlowNodes(nodes);
-    
+
     setReactFlowNodes(current => {
-      // Preserve ReactFlow state while allowing pipeline updates
+      // If we just updated positions (including deletions), use fresh pipeline data
+      if (justUpdatedPositions.current) {
+        justUpdatedPositions.current = false; // Reset flag
+
+        // Mark initial load as complete if needed
+        if (isInitialLoad.current) {
+          isInitialLoad.current = false;
+        }
+
+        return rfNodes; // Use fresh pipeline nodes directly - this handles deletions correctly
+      }
+
+      // Check if nodes were deleted (pipeline has fewer nodes than ReactFlow)
+      const pipelineNodeIds = new Set(rfNodes.map(n => n.id));
+      const reactFlowNodeIds = new Set(current.map(n => n.id));
+      const deletedNodes = Array.from(reactFlowNodeIds).filter(id => !pipelineNodeIds.has(id));
+
+      if (deletedNodes.length > 0) {
+        // Use fresh pipeline data when nodes are deleted
+        return rfNodes;
+      }
+
+      // Check if prompt node data changed (for connection updates)
+      const currentPromptNode = current.find(n => n.type === 'prompt');
+      const newPromptNode = rfNodes.find(n => n.type === 'prompt');
+
+      if (currentPromptNode && newPromptNode) {
+        const currentConnections = currentPromptNode.data.connectedComponentsWithIds || [];
+        const newConnections = newPromptNode.data.connectedComponentsWithIds || [];
+        const hasImmediateUpdate = newPromptNode.data._immediateUpdate;
+
+        console.log('🔍 ReactFlow prompt sync check:', {
+          currentConnections: currentConnections.map(c => c.id),
+          newConnections: newConnections.map(c => c.id),
+          hasImmediateUpdate,
+          forceUpdate: hasImmediateUpdate || JSON.stringify(currentConnections) !== JSON.stringify(newConnections)
+        });
+
+        if (hasImmediateUpdate || JSON.stringify(currentConnections) !== JSON.stringify(newConnections)) {
+          // Force update when prompt connections change or immediate update
+          console.log('🔄 FORCING ReactFlow prompt node update');
+          return rfNodes;
+        }
+      }
+
+      // Otherwise preserve ReactFlow state while allowing pipeline updates
       const updatedNodes = rfNodes.map(newNode => {
         const existingNode = current.find(n => n.id === newNode.id);
         if (existingNode) {
-          // Use pipeline positions only if:
-          // 1. It's initial load, OR
-          // 2. We just updated positions from drag (justUpdatedPositions flag)
-          const shouldUsePipelinePosition = isInitialLoad.current || justUpdatedPositions.current;
+          // Use pipeline positions only on initial load
+          const shouldUsePipelinePosition = isInitialLoad.current;
           const finalPosition = shouldUsePipelinePosition ? newNode.position : existingNode.position;
-          
-          if (shouldUsePipelinePosition) {
-            console.log('📥 Using updated pipeline position for node:', newNode.id, finalPosition);
-          } else {
-            console.log('🔒 Preserving ReactFlow position for node:', newNode.id, finalPosition);
-          }
-          
-          return { 
-            ...newNode, 
+
+          // Force new object reference for React to detect changes, especially for prompt nodes
+          return {
+            ...newNode,
             position: finalPosition,
             selected: existingNode.selected,
-            dragging: existingNode.dragging
+            dragging: existingNode.dragging,
+            // Force new data reference to trigger re-render
+            data: { ...newNode.data }
           };
         }
-        console.log('🆕 New node (no existing): ', newNode.id, 'position:', newNode.position);
         return newNode;
       });
-      
+
       // Mark initial load as complete after first sync
       if (isInitialLoad.current) {
         isInitialLoad.current = false;
-        console.log('🏁 Initial load complete');
       }
-      
+
       return updatedNodes;
     });
-  }, [nodes, selectedComponentType]);
+  }, [nodes, selectedComponentType, connections]);
 
   // Sync ReactFlow edges with pipeline connections
   useEffect(() => {
-    console.log(`🔄 SYNCING REACTFLOW EDGES - ${connections.length} connections`);
-    
     const rfEdges = convertToReactFlowEdges(connections);
     setReactFlowEdges(rfEdges);
   }, [connections, convertToReactFlowEdges, setReactFlowEdges]);
@@ -340,19 +416,14 @@ function CanvasWorkspaceContent({
   // Handle node position changes
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
     onNodesChangeRF(changes);
-    
+
     // Track dragging state
     const dragChanges = changes.filter(change => change.type === 'position');
     if (dragChanges.length > 0) {
       const anyDragging = dragChanges.some(change => change.dragging === true);
-      const wasChanged = isDragging.current !== anyDragging;
       isDragging.current = anyDragging;
-      
-      if (wasChanged) {
-        console.log('🐭 Dragging state changed:', anyDragging ? 'STARTED' : 'STOPPED');
-      }
     }
-    
+
     // Track selected nodes for highlighting
     const selectChanges = changes.filter(change => change.type === 'select');
     selectChanges.forEach(change => {
@@ -361,43 +432,26 @@ function CanvasWorkspaceContent({
           // Find the node and get its type
           const node = nodes.find(n => n.id === change.id);
           if (node && node.type !== 'prompt') {
-            console.log('🎯 Node selected:', node.type);
             // Pass the selected component type to parent
             onSelectionChange?.(node.type);
           }
         } else {
-          console.log('🔴 Node deselected:', change.id);
           // Node was deselected
           onSelectionChange?.(null);
         }
       }
     });
-    
-    // Debug: Log all position-related changes
-    const allPositionChanges = changes.filter(change => change.type === 'position');
-    console.log('📦 All position changes:', allPositionChanges.map(c => ({
-      id: 'id' in c ? c.id : 'unknown',
-      dragging: c.dragging,
-      position: c.position
-    })));
-    
+
     // Update positions in our pipeline nodes, but only for non-dragging position changes
-    const positionChanges = changes.filter(change => 
-      change.type === 'position' && 
+    const positionChanges = changes.filter(change =>
+      change.type === 'position' &&
       change.dragging === false // Only update when drag is complete
     );
-    
-    console.log('📦 Non-dragging position changes:', positionChanges.length, positionChanges.map(c => ({
-      id: 'id' in c ? c.id : 'unknown',
-      position: c.position
-    })));
-    
+
     if (positionChanges.length > 0) {
-      console.log('⏰ Setting pending position changes via state');
-      
       // Set pending flag to prevent sync interference
       pendingPositionUpdate.current = true;
-      
+
       // Store the position changes in state to trigger useEffect
       setPendingPositionChanges(positionChanges);
     }
@@ -405,35 +459,23 @@ function CanvasWorkspaceContent({
 
   // Handle edge changes (including deletions)
   const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
-    console.log('🔄 EDGE CHANGES DETECTED:', changes);
-    
     // First update ReactFlow's internal state
     onEdgesChangeRF(changes);
-    
+
     // Handle edge deletions - but only for user-initiated deletions (not manual ones)
     const removedEdges = changes.filter(change => change.type === 'remove');
     if (removedEdges.length > 0) {
-      console.log('🔥 REACTFLOW EDGE DELETION DETECTED');
-      console.log('Trying to remove edge IDs:', removedEdges.map(e => e.id));
-      console.log('Current connection IDs:', connections.map(c => c.id));
-      
       // Check if these edges still exist in our connections (they shouldn't if manually deleted)
-      const edgesToRemove = removedEdges.filter(change => 
+      const edgesToRemove = removedEdges.filter(change =>
         connections.some(conn => conn.id === change.id)
       );
-      
+
       if (edgesToRemove.length > 0) {
-        console.log('Found matching connections to remove:', edgesToRemove.map(e => e.id));
-        const updatedConnections = connections.filter(conn => 
+        const updatedConnections = connections.filter(conn =>
           !edgesToRemove.some(change => change.id === conn.id)
         );
-        
-        console.log('Connections after removal:', updatedConnections.map(c => c.id));
+
         onConnectionsChange(updatedConnections);
-      } else {
-        console.log('❌ NO MATCHING CONNECTIONS FOUND - This is the bug!');
-        console.log('Edge IDs to remove:', removedEdges.map(e => e.id));
-        console.log('Available connection IDs:', connections.map(c => c.id));
       }
     }
   }, [onEdgesChangeRF, connections, onConnectionsChange]);
@@ -442,32 +484,32 @@ function CanvasWorkspaceContent({
   const isValidConnection: IsValidConnection = useCallback((connection) => {
     const sourceNode = nodes.find(n => n.id === connection.source);
     const targetNode = nodes.find(n => n.id === connection.target);
-    
+
     if (!sourceNode || !targetNode) return false;
-    
+
     // Don't allow self-connections
     if (connection.source === connection.target) return false;
-    
+
     // Only allow connections TO the prompt node (not from it)
     if (targetNode.type !== 'prompt') return false;
-    
+
     // Don't allow connections FROM the prompt node
     if (sourceNode.type === 'prompt') return false;
-    
+
     // Prevent duplicate connections - check current ReactFlow edges state instead of connections
     // This ensures we check the most up-to-date state
-    const connectionExists = reactFlowEdges.some(edge => 
+    const connectionExists = reactFlowEdges.some(edge =>
       edge.source === connection.source && edge.target === connection.target
     );
     if (connectionExists) return false;
-    
+
     return true;
   }, [reactFlowEdges, nodes]);
 
   const onConnect: OnConnect = useCallback(
     (params: Connection) => {
       if (!isValidConnection(params)) return;
-      
+
       const newConnection: PipelineConnection = {
         id: `${params.source}-${params.target}-${params.sourceHandle || 'default'}-${params.targetHandle || 'default'}`,
         source: params.source!,
@@ -475,10 +517,7 @@ function CanvasWorkspaceContent({
         sourceHandle: params.sourceHandle || 'default',
         targetHandle: params.targetHandle || 'input',
       };
-      
-      console.log('🔗 NEW CONNECTION CREATED:', newConnection);
-      console.log('Previous connections:', connections);
-      
+
       onConnectionsChange([...connections, newConnection]);
     },
     [connections, onConnectionsChange, isValidConnection]
@@ -559,22 +598,19 @@ function CanvasWorkspaceContent({
         target.closest('.modal') ||
         target.closest('[data-radix-modal]')
       ) {
-        console.log('🚫 Ignoring delete key - user is typing in:', target.tagName);
         return;
       }
-      
+
       if (event.key === 'Delete' || event.key === 'Backspace') {
-        console.log('🗑️ Processing delete key for canvas elements');
-        
         // Get selected nodes and edges
         const selectedNodes = reactFlowNodes.filter(node => node.selected);
         const selectedEdges = reactFlowEdges.filter(edge => edge.selected);
-        
+
         // Delete selected nodes
         selectedNodes.forEach(node => {
           handleNodeDelete(node.id);
         });
-        
+
         // Delete selected edges
         selectedEdges.forEach(edge => {
           handleEdgeDelete(edge.id);
@@ -612,10 +648,10 @@ function CanvasWorkspaceContent({
         fitView
         fitViewOptions={{ padding: 0.5 }}
       >
-        <Controls 
-          className="!bg-gray-800 !border-gray-600 !text-white [&>button]:!bg-gray-700 [&>button]:!border-gray-600 [&>button]:!text-white [&>button:hover]:!bg-gray-600" 
+        <Controls
+          className="!bg-gray-800 !border-gray-600 !text-white [&>button]:!bg-gray-700 [&>button]:!border-gray-600 [&>button]:!text-white [&>button:hover]:!bg-gray-600"
         />
-        <MiniMap 
+        <MiniMap
           className="!bg-gray-800 !border-gray-600"
           maskColor="rgba(0, 0, 0, 0.8)"
           pannable

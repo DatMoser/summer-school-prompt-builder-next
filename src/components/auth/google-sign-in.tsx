@@ -16,9 +16,9 @@ export default function GoogleSignIn({ onAuthChange }: GoogleSignInProps) {
   const handleSignIn = async () => {
     setIsLoading(true);
     try {
-      await signIn('google', { 
+      await signIn('google', {
         callbackUrl: window.location.href,
-        redirect: false 
+        redirect: false
       });
     } catch (error) {
       console.error('Sign in error:', error);
@@ -42,10 +42,8 @@ export default function GoogleSignIn({ onAuthChange }: GoogleSignInProps) {
   // Notify parent of auth changes using useEffect to avoid render-time state updates
   useEffect(() => {
     if (session?.accessToken && onAuthChange) {
-      console.log('GoogleSignIn: Session has access token, notifying parent');
       onAuthChange(true, session.accessToken);
     } else if (!session && onAuthChange) {
-      console.log('GoogleSignIn: No session, notifying parent');
       onAuthChange(false);
     }
   }, [session, onAuthChange]);
@@ -60,12 +58,12 @@ export default function GoogleSignIn({ onAuthChange }: GoogleSignInProps) {
   }
 
   if (session?.user) {
-    console.log('GoogleSignIn: Session data:', { 
-      user: session.user, 
+    console.log('GoogleSignIn: Session data:', {
+      user: session.user,
       accessToken: session.accessToken ? 'present' : 'missing',
-      error: session.error 
+      error: session.error
     });
-    
+
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-3 p-3 bg-green-500/10 border border-green-400/20 rounded-lg">

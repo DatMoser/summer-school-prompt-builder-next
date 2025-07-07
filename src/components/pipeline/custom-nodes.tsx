@@ -1,5 +1,5 @@
 import { Handle, Position } from 'reactflow';
-import { Upload, Youtube, User, Settings, X, Palette } from 'lucide-react';
+import { Upload, User, Settings, X, Palette } from 'lucide-react';
 
 interface NodeData {
   configured: boolean;
@@ -27,11 +27,9 @@ export function EvidenceInputNode({ data, selected }: CustomNodeProps) {
         }`}
         onClick={data.onConfigure}
         onMouseEnter={() => {
-          console.log(`🖱️ Evidence node hover enter`);
           data.onHover?.(true);
         }}
         onMouseLeave={() => {
-          console.log(`🖱️ Evidence node hover leave`);
           data.onHover?.(false);
         }}
       >
@@ -110,11 +108,9 @@ export function StylePersonalizationNode({ data, selected }: CustomNodeProps) {
         }`}
         onClick={data.onConfigure}
         onMouseEnter={() => {
-          console.log(`🖱️ Style node hover enter`);
           data.onHover?.(true);
         }}
         onMouseLeave={() => {
-          console.log(`🖱️ Style node hover leave`);
           data.onHover?.(false);
         }}
       >
@@ -193,11 +189,9 @@ export function PersonalDataNode({ data, selected }: CustomNodeProps) {
         }`}
         onClick={data.onConfigure}
         onMouseEnter={() => {
-          console.log(`🖱️ Style node hover enter`);
           data.onHover?.(true);
         }}
         onMouseLeave={() => {
-          console.log(`🖱️ Style node hover leave`);
           data.onHover?.(false);
         }}
       >
@@ -276,11 +270,9 @@ export function OutputSelectorNode({ data, selected }: CustomNodeProps) {
         }`}
         onClick={data.onConfigure}
         onMouseEnter={() => {
-          console.log(`🖱️ Style node hover enter`);
           data.onHover?.(true);
         }}
         onMouseLeave={() => {
-          console.log(`🖱️ Style node hover leave`);
           data.onHover?.(false);
         }}
       >

@@ -44,7 +44,6 @@ const authOptions: NextAuthOptions = {
     async jwt({ token, account, user }) {
       // Initial sign in
       if (account && user) {
-        console.log('Initial sign in, storing tokens');
         console.log('Account scopes:', account.scope);
         return {
           ...token,
