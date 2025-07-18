@@ -172,7 +172,7 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
             <button
               onClick={data.onGenerate}
               disabled={connectedComponentsWithIds.length === 0}
-              className="bg-purple-500 hover:bg-purple-400 disabled:bg-purple-600/50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-colors"
+              className="bg-purple-500 hover:bg-purple-400 disabled:bg-purple-600/50 disabled:cursor-not-allowed cursor-pointer text-white px-6 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-colors"
             >
               <Play size={16} />
               Generate Content

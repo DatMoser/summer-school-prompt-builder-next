@@ -223,7 +223,8 @@ function CanvasWorkspaceContent({
         ...node.data,
         configContent: getConfigContent(node.type, node.data.configured),
         onConfigure: () => onNodeClick(node.id, node.type),
-        onDelete: () => handleNodeDelete(node.id),
+        // Only allow deletion if the node is not connected to AI Prompt Builder
+        onDelete: !activeConnection ? () => handleNodeDelete(node.id) : undefined,
         connected: !!activeConnection,
         activeHandle: activeConnection?.sourceHandle,
         onHover: (hovering: boolean) => {
@@ -606,9 +607,13 @@ function CanvasWorkspaceContent({
         const selectedNodes = reactFlowNodes.filter(node => node.selected);
         const selectedEdges = reactFlowEdges.filter(edge => edge.selected);
 
-        // Delete selected nodes
+        // Delete selected nodes (only if they're not connected)
         selectedNodes.forEach(node => {
-          handleNodeDelete(node.id);
+          // Check if this node is connected to AI Prompt Builder
+          const isConnected = connections.some(conn => conn.source === node.id);
+          if (!isConnected) {
+            handleNodeDelete(node.id);
+          }
         });
 
         // Delete selected edges

@@ -100,7 +100,7 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
           <Button 
             variant="outline" 
             onClick={handleCancel}
-            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+            className="border-gray-600 text-gray-300 hover:bg-gray-700 bg-gray-700"
           >
             Cancel
           </Button>

@@ -90,7 +90,7 @@ export function EvidenceInputNode({ data, selected }: CustomNodeProps) {
           onMouseLeave={(e) => {
             e.stopPropagation();
           }}
-          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10"
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10 cursor-pointer"
         >
           <X size={12} className="text-white" />
         </button>
@@ -171,7 +171,7 @@ export function StylePersonalizationNode({ data, selected }: CustomNodeProps) {
           onMouseLeave={(e) => {
             e.stopPropagation();
           }}
-          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10"
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10 cursor-pointer"
         >
           <X size={12} className="text-white" />
         </button>
@@ -252,7 +252,7 @@ export function PersonalDataNode({ data, selected }: CustomNodeProps) {
           onMouseLeave={(e) => {
             e.stopPropagation();
           }}
-          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10"
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10 cursor-pointer"
         >
           <X size={12} className="text-white" />
         </button>
@@ -333,7 +333,7 @@ export function OutputSelectorNode({ data, selected }: CustomNodeProps) {
           onMouseLeave={(e) => {
             e.stopPropagation();
           }}
-          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10"
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10 cursor-pointer"
         >
           <X size={12} className="text-white" />
         </button>
