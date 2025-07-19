@@ -43,6 +43,29 @@ export interface PersonalDataPromptSectionProps extends PromptSectionProps {
   };
 }
 
+export interface VisualStylingPromptSectionProps extends PromptSectionProps {
+  visualStylingData?: {
+    videoStyle?: {
+      colorScheme?: string;
+      visualTheme?: string;
+      fontStyle?: string;
+      layoutStyle?: string;
+      backgroundStyle?: string;
+      animationLevel?: string;
+    };
+    podcastThumbnail?: {
+      colorScheme?: string;
+      designTheme?: string;
+      fontStyle?: string;
+      layoutType?: string;
+      backgroundStyle?: string;
+      iconStyle?: string;
+    };
+    healthFocus?: string;
+    targetDemographic?: string;
+  };
+}
+
 export interface OutputSelectorPromptSectionProps extends PromptSectionProps {
   outputSelectorData?: {
     selectedFormat?: string;
@@ -216,6 +239,77 @@ export function PersonalDataPromptSection({ onRemove, highlighted, componentId, 
           </div>
         ) : (
           <div className="text-gray-400 italic">Configure personal data to see content here</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function VisualStylingPromptSection({ onRemove, highlighted, componentId, visualStylingData }: VisualStylingPromptSectionProps) {
+  return (
+    <div 
+      className={`bg-purple-500/10 border border-purple-400/20 rounded-lg p-3 mb-3 relative group transition-all duration-300 ${
+        highlighted ? 'ring-4 ring-pink-400 bg-pink-500/80 shadow-2xl shadow-pink-500/40 border-pink-400/60 scale-105 -translate-y-1 pink-pulse !bg-pink-500/80' : ''
+      }`}
+      data-component-id={componentId}
+      data-component-type="visual-styling"
+    >
+      {onRemove && (
+        <button
+          onClick={onRemove}
+          className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white hover:bg-red-600"
+        >
+          <X size={12} />
+        </button>
+      )}
+      <div className="text-xs text-purple-100 font-mono whitespace-pre-wrap">
+        <div className="text-purple-300 font-medium mb-1">🎨 Visual Styling</div>
+        {visualStylingData ? (
+          <div>
+            <div className="mb-2">
+              <span className="text-purple-200 font-medium">VISUAL STYLING:</span>
+              <div className="mt-1 text-gray-300 space-y-1">
+                {visualStylingData.videoStyle && (
+                  <div>
+                    <div className="text-gray-400">Video Style:</div>
+                    {visualStylingData.videoStyle.colorScheme && <div>• Color Scheme: {visualStylingData.videoStyle.colorScheme}</div>}
+                    {visualStylingData.videoStyle.visualTheme && <div>• Design Theme: {visualStylingData.videoStyle.visualTheme}</div>}
+                    {visualStylingData.videoStyle.fontStyle && <div>• Font Style: {visualStylingData.videoStyle.fontStyle}</div>}
+                    {visualStylingData.videoStyle.layoutStyle && <div>• Layout Style: {visualStylingData.videoStyle.layoutStyle}</div>}
+                    {visualStylingData.videoStyle.backgroundStyle && <div>• Background Style: {visualStylingData.videoStyle.backgroundStyle}</div>}
+                    {visualStylingData.videoStyle.animationLevel && <div>• Animation Level: {visualStylingData.videoStyle.animationLevel}</div>}
+                  </div>
+                )}
+                {visualStylingData.podcastThumbnail && (
+                  <div>
+                    <div className="text-gray-400">Podcast Thumbnail:</div>
+                    {visualStylingData.podcastThumbnail.colorScheme && <div>• Color Scheme: {visualStylingData.podcastThumbnail.colorScheme}</div>}
+                    {visualStylingData.podcastThumbnail.designTheme && <div>• Design Theme: {visualStylingData.podcastThumbnail.designTheme}</div>}
+                    {visualStylingData.podcastThumbnail.fontStyle && <div>• Font Style: {visualStylingData.podcastThumbnail.fontStyle}</div>}
+                    {visualStylingData.podcastThumbnail.layoutType && <div>• Layout Type: {visualStylingData.podcastThumbnail.layoutType}</div>}
+                    {visualStylingData.podcastThumbnail.backgroundStyle && <div>• Background Style: {visualStylingData.podcastThumbnail.backgroundStyle}</div>}
+                    {visualStylingData.podcastThumbnail.iconStyle && <div>• Icon Style: {visualStylingData.podcastThumbnail.iconStyle}</div>}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {visualStylingData.healthFocus && (
+              <div className="mb-2">
+                <span className="text-purple-200 font-medium">HEALTH FOCUS:</span>
+                <div className="mt-1 text-gray-300">{visualStylingData.healthFocus}</div>
+              </div>
+            )}
+            
+            {visualStylingData.targetDemographic && (
+              <div>
+                <span className="text-purple-200 font-medium">TARGET DEMOGRAPHIC:</span>
+                <div className="mt-1 text-gray-300">{visualStylingData.targetDemographic}</div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-gray-400 italic">Configure visual styling to see content here</div>
         )}
       </div>
     </div>

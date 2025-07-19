@@ -17,7 +17,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { PipelineNode, PipelineConnection } from '@/lib/pipeline-types';
-import { EvidenceInputNode, StylePersonalizationNode, PersonalDataNode, OutputSelectorNode } from './custom-nodes';
+import { EvidenceInputNode, StylePersonalizationNode, VisualStylingNode, PersonalDataNode, OutputSelectorNode } from './custom-nodes';
 import { PromptNode } from './prompt-node';
 import CustomEdge from './custom-edge';
 
@@ -33,6 +33,7 @@ interface CanvasWorkspaceProps {
   // Configuration data for display
   evidenceData?: any;
   styleData?: any;
+  visualStylingData?: any;
   personalData?: any;
   outputSelectorData?: any;
   // Prompt handling
@@ -52,6 +53,7 @@ function CanvasWorkspaceContent({
   onHoverChange,
   evidenceData,
   styleData,
+  visualStylingData,
   personalData,
   outputSelectorData,
   promptText,
@@ -85,6 +87,8 @@ function CanvasWorkspaceContent({
                  evidenceData.fileContent && evidenceData.fileContent.trim().length > 0;
         case 'style-personalization':
           return styleData !== null && styleData !== undefined;
+        case 'visual-styling':
+          return visualStylingData !== null && visualStylingData !== undefined;
         case 'personal-data':
           return personalData !== null && personalData !== undefined;
         case 'output-selector':
@@ -111,7 +115,7 @@ function CanvasWorkspaceContent({
     if (hasChanges) {
       onNodesChange(updatedNodes);
     }
-  }, [evidenceData, styleData, personalData, outputSelectorData, nodes, onNodesChange]);
+  }, [evidenceData, styleData, visualStylingData, personalData, outputSelectorData, nodes, onNodesChange]);
 
   // Process pending position changes after a delay
   useEffect(() => {
@@ -154,6 +158,7 @@ function CanvasWorkspaceContent({
   const nodeTypes = useMemo(() => ({
     'evidence-input': EvidenceInputNode,
     'style-personalization': StylePersonalizationNode,
+    'visual-styling': VisualStylingNode,
     'personal-data': PersonalDataNode,
     'output-selector': OutputSelectorNode,
     'prompt': PromptNode,
@@ -183,14 +188,14 @@ function CanvasWorkspaceContent({
             const sourceNode = updatedNodes.find(n => n.id === conn.source);
             return sourceNode ? sourceNode.type : null;
           })
-          .filter(Boolean);
+          .filter((type): type is PipelineNode['type'] => type !== null);
 
         const connectedComponentsWithIds = remainingConnections
           .map(conn => {
             const sourceNode = updatedNodes.find(n => n.id === conn.source);
             return sourceNode ? { id: sourceNode.id, type: sourceNode.type } : null;
           })
-          .filter(Boolean) as Array<{ id: string, type: string }>;
+          .filter((item): item is { id: string, type: PipelineNode['type'] } => item !== null);
 
         return {
           ...node,
@@ -246,6 +251,12 @@ function CanvasWorkspaceContent({
         return styleData ? {
           primary: `Tone: ${styleData.tone}`,
           secondary: `Target: ${styleData.targetAudience}${styleData.keyPhrases?.length ? ` • ${styleData.keyPhrases.length} phrases` : ''}`
+        } : undefined;
+      case 'visual-styling':
+        return visualStylingData ? {
+          primary: visualStylingData.videoStyle ? `Video: ${visualStylingData.videoStyle.visualTheme}` : 
+                   visualStylingData.podcastThumbnail ? `Thumbnail: ${visualStylingData.podcastThumbnail.designTheme}` : 'Visual styling configured',
+          secondary: visualStylingData.healthFocus ? `Focus: ${visualStylingData.healthFocus}` : 'Custom styling'
         } : undefined;
       case 'personal-data':
         return personalData ? {
@@ -335,6 +346,7 @@ function CanvasWorkspaceContent({
             // Pass the actual data for real-time prompt generation
             evidenceData,
             styleData,
+            visualStylingData,
             personalData,
             outputSelectorData,
           },
@@ -419,8 +431,8 @@ function CanvasWorkspaceContent({
         const hasImmediateUpdate = newPromptNode.data._immediateUpdate;
 
         console.log('🔍 ReactFlow prompt sync check:', {
-          currentConnections: currentConnections.map(c => c.id),
-          newConnections: newConnections.map(c => c.id),
+          currentConnections: currentConnections.map((c: any) => c.id),
+          newConnections: newConnections.map((c: any) => c.id),
           hasImmediateUpdate,
           forceUpdate: hasImmediateUpdate || JSON.stringify(currentConnections) !== JSON.stringify(newConnections)
         });
@@ -581,10 +593,11 @@ function CanvasWorkspaceContent({
   // Node title/description helpers
   const getNodeTitle = (nodeType: string) => {
     const titles = {
-      'evidence-input': 'Evidence Input',
-      'style-personalization': 'Style Personalization',
-      'personal-data': 'Personal Data',
-      'output-selector': 'Output Selector',
+      'evidence-input': 'Evidence-Based Input',
+      'style-personalization': 'Conversational Style',
+      'visual-styling': 'Visual Styling',
+      'personal-data': 'Personal Health Profile',
+      'output-selector': 'Output Format',
       'prompt': 'AI Prompt',
     };
     return titles[nodeType as keyof typeof titles] || 'Unknown';
@@ -593,7 +606,8 @@ function CanvasWorkspaceContent({
   const getNodeDescription = (nodeType: string) => {
     const descriptions = {
       'evidence-input': 'Upload evidence documents',
-      'style-personalization': 'Analyze YouTube style',
+      'style-personalization': 'Configure speaking style',
+      'visual-styling': 'Design visual appearance',
       'personal-data': 'Personal health data',
       'output-selector': 'Select output format',
       'prompt': 'Build and edit AI prompt',
@@ -628,6 +642,8 @@ function CanvasWorkspaceContent({
                    evidenceData.fileContent && evidenceData.fileContent.trim().length > 0;
           case 'style-personalization':
             return styleData !== null && styleData !== undefined;
+          case 'visual-styling':
+            return visualStylingData !== null && visualStylingData !== undefined;
           case 'personal-data':
             return personalData !== null && personalData !== undefined;
           case 'output-selector':
@@ -665,7 +681,7 @@ function CanvasWorkspaceContent({
       if (
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
-        target.contentEditable === 'true' ||
+        (target as HTMLElement).contentEditable === 'true' ||
         target.closest('[role="dialog"]') ||
         target.closest('.modal') ||
         target.closest('[data-radix-modal]')
@@ -736,6 +752,7 @@ function CanvasWorkspaceContent({
             const colors = {
               'evidence-input': '#10b981',
               'style-personalization': '#eab308',
+              'visual-styling': '#ec4899',
               'personal-data': '#3b82f6',
               'output-selector': '#f97316',
               'prompt': '#9333ea',

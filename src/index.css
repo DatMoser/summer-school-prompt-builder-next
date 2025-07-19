@@ -193,6 +193,17 @@
   }
 }
 
+@keyframes pinkPulse {
+  0%, 100% { 
+    box-shadow: 0 25px 50px -12px rgba(236, 72, 153, 0.4), 0 0 0 0 rgba(236, 72, 153, 0.4);
+    background-color: rgba(236, 72, 153, 0.6);
+  }
+  50% { 
+    box-shadow: 0 25px 50px -12px rgba(236, 72, 153, 0.6), 0 0 0 8px rgba(236, 72, 153, 0.1);
+    background-color: rgba(236, 72, 153, 0.8);
+  }
+}
+
 .emerald-pulse {
   animation: emeraldPulse 2s ease-in-out infinite;
 }
@@ -207,6 +218,10 @@
 
 .orange-pulse {
   animation: orangePulse 2s ease-in-out infinite;
+}
+
+.pink-pulse {
+  animation: pinkPulse 2s ease-in-out infinite;
 }
 
 /* React Flow specific styles */

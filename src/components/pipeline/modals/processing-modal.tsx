@@ -197,6 +197,42 @@ export default function ProcessingModal({
 
         const { jobId: newJobId } = await response.json();
 
+        // Immediately save job to local storage for gallery tracking
+        try {
+          const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
+          const history = savedHistory ? JSON.parse(savedHistory) : [];
+          
+          const newItem = {
+            id: newJobId,
+            title: `Generating ${format === 'video' ? 'Video' : 'Podcast'} Content`,
+            format,
+            status: 'started',
+            downloadUrl: null,
+            thumbnailUrl: null,
+            duration: null,
+            fileSize: null,
+            createdAt: new Date().toISOString(),
+            lastUpdated: new Date().toISOString(),
+            progress: 0,
+            evidenceData: evidenceData ? {
+              fileName: evidenceData.fileName,
+              hasContent: !!evidenceData.fileContent
+            } : null,
+            styleData: styleData ? {
+              tone: styleData.tone,
+              isAIGenerated: styleData.isAIGenerated
+            } : null,
+            personalData: personalData ? {
+              hasMetrics: !!(personalData.metrics && Object.keys(personalData.metrics).length > 0)
+            } : null
+          };
+          
+          history.unshift(newItem);
+          localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
+        } catch (error) {
+          console.error('Failed to save job to gallery:', error);
+        }
+
         // Start polling for status
         let stepIndex = 0;
         pollInterval = setInterval(async () => {
@@ -211,6 +247,26 @@ export default function ProcessingModal({
 
             // Update progress based on API response
             setOverallProgress(statusData.progress || 0);
+
+            // Update gallery item with current progress
+            try {
+              const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
+              if (savedHistory) {
+                const history = JSON.parse(savedHistory);
+                const itemIndex = history.findIndex((item: any) => item.id === newJobId);
+                if (itemIndex !== -1) {
+                  history[itemIndex] = {
+                    ...history[itemIndex],
+                    progress: statusData.progress || 0,
+                    status: statusData.status || 'started',
+                    lastUpdated: new Date().toISOString()
+                  };
+                  localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
+                }
+              }
+            } catch (error) {
+              console.error('Failed to update gallery item:', error);
+            }
 
             // Update steps based on progress
             const progressSteps = Math.floor((statusData.progress || 0) / (100 / steps.length));
@@ -242,16 +298,60 @@ export default function ProcessingModal({
                 id: newJobId,
                 downloadUrl: statusData.downloadUrl || '',
                 format,
-                duration: format === 'video' ? 120 : 180, // Default values
-                fileSize: format === 'video' ? 25600000 : 5120000
+                duration: statusData.duration || (format === 'video' ? 120 : 180),
+                fileSize: statusData.fileSize || (format === 'video' ? 25600000 : 5120000)
               };
               setResult(result);
+
+              // Update gallery item with final result
+              try {
+                const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
+                if (savedHistory) {
+                  const history = JSON.parse(savedHistory);
+                  const itemIndex = history.findIndex((item: any) => item.id === newJobId);
+                  if (itemIndex !== -1) {
+                    history[itemIndex] = {
+                      ...history[itemIndex],
+                      status: 'finished',
+                      downloadUrl: statusData.downloadUrl || '',
+                      thumbnailUrl: statusData.thumbnailUrl,
+                      duration: statusData.duration || (format === 'video' ? 120 : 180),
+                      fileSize: statusData.fileSize || (format === 'video' ? 25600000 : 5120000),
+                      progress: 100,
+                      lastUpdated: new Date().toISOString()
+                    };
+                    localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
+                  }
+                }
+              } catch (error) {
+                console.error('Failed to update gallery item with final result:', error);
+              }
 
             } else if (statusData.status === 'failed') {
               clearInterval(pollInterval);
               setStatus('failed');
               setError(statusData.error || 'Generation failed');
               setCanCancel(false);
+
+              // Update gallery item with error status
+              try {
+                const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
+                if (savedHistory) {
+                  const history = JSON.parse(savedHistory);
+                  const itemIndex = history.findIndex((item: any) => item.id === newJobId);
+                  if (itemIndex !== -1) {
+                    history[itemIndex] = {
+                      ...history[itemIndex],
+                      status: 'failed',
+                      error: statusData.error || 'Generation failed',
+                      lastUpdated: new Date().toISOString()
+                    };
+                    localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
+                  }
+                }
+              } catch (error) {
+                console.error('Failed to update gallery item with error:', error);
+              }
             }
 
           } catch (pollError) {
@@ -268,6 +368,24 @@ export default function ProcessingModal({
 
         // Mark first step as error
         updateStepStatus(0, 'error');
+
+        // Save error to gallery if we have a job ID
+        try {
+          const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
+          if (savedHistory) {
+            const history = JSON.parse(savedHistory);
+            // Find the most recent item that might be this failed job
+            const recentItem = history[0];
+            if (recentItem && recentItem.status === 'started') {
+              recentItem.status = 'failed';
+              recentItem.error = error.message || 'Failed to start generation';
+              recentItem.lastUpdated = new Date().toISOString();
+              localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
+            }
+          }
+        } catch (storageError) {
+          console.error('Failed to update gallery with startup error:', storageError);
+        }
       }
     };
 

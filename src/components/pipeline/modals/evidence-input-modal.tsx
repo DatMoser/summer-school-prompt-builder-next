@@ -389,8 +389,8 @@ export default function EvidenceInputModal({ open, onOpenChange, onDataUpdate, e
           {isProcessed && summary && inputMethod === 'file' && (
             <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="font-medium text-emerald-400 flex items-center gap-2">
-                  <File size={16} />
+                <h4 className="text-sm text-emerald-400 flex items-center gap-2">
+                  <File size={14} />
                   Document Summary
                 </h4>
                 {analysisResult?.fileContent && (

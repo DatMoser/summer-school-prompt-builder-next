@@ -59,7 +59,7 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
   };
 
   // Handle field changes
-  const handleFieldChange = (field: keyof PersonalHealthData, value: string | number | string[]) => {
+  const handleFieldChange = (field: keyof PersonalHealthData, value: string | number | string[] | undefined) => {
     setHealthData(prev => ({ ...prev, [field]: value, lastSyncDate: new Date().toISOString() }));
   };
 
@@ -183,7 +183,7 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
                   type="number"
                   min="100"
                   max="250"
-                  value={healthData.heightCm || ''}
+                  value={healthData.heightCm?.toString() || ''}
                   onChange={(e) => handleFieldChange('heightCm', parseInt(e.target.value) || undefined)}
                   className="bg-gray-700 border-gray-600 text-gray-200"
                   placeholder="e.g., 175"
@@ -199,7 +199,7 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
                   type="number"
                   min="30"
                   max="300"
-                  value={healthData.weightKg || ''}
+                  value={healthData.weightKg?.toString() || ''}
                   onChange={(e) => handleFieldChange('weightKg', parseInt(e.target.value) || undefined)}
                   className="bg-gray-700 border-gray-600 text-gray-200"
                   placeholder="e.g., 70"

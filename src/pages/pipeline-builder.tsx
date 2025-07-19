@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Settings, Images } from "lucide-react";
-import type { EvidenceData, OutputSelectorData, PersonalHealthData, PipelineConnection, PipelineNode, StyleData } from "../lib/pipeline-types";
+import type { EvidenceData, OutputSelectorData, PersonalHealthData, PipelineConnection, PipelineNode, StyleData, VisualStylingData } from "../lib/pipeline-types";
 import CanvasWorkspace from "../components/pipeline/canvas-workspace";
 import ComponentSidebar from "../components/pipeline/component-sidebar";
 import ConfirmationModal from "../components/pipeline/modals/confirmation-modal";
@@ -10,6 +10,7 @@ import OutputSelectorModal from "../components/pipeline/modals/output-selector-m
 import PersonalDataModal from "../components/pipeline/modals/personal-data-modal";
 import SettingsModal from "../components/pipeline/modals/settings-modal";
 import StylePersonalizationModal from "../components/pipeline/modals/style-personalization-modal";
+import VisualStylingModal from "../components/pipeline/modals/visual-styling-modal";
 import ProcessingModal, { GenerationResult } from "../components/pipeline/modals/processing-modal";
 import GalleryModal from "../components/gallery/gallery-modal";
 import TitleInputModal from "../components/pipeline/modals/title-input-modal";
@@ -74,6 +75,7 @@ export default function PipelineBuilder() {
   // Modal states
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
   const [styleModalOpen, setStyleModalOpen] = useState(false);
+  const [visualStylingModalOpen, setVisualStylingModalOpen] = useState(false);
   const [personalDataModalOpen, setPersonalDataModalOpen] = useState(false);
   const [outputSelectorModalOpen, setOutputSelectorModalOpen] = useState(false);
   const [confirmationModalOpen, setConfirmationModalOpen] = useState(false);
@@ -111,6 +113,20 @@ export default function PipelineBuilder() {
         }
       } catch (error) {
         console.error('❌ Error loading saved style data:', error);
+      }
+    }
+    return null;
+  });
+
+  const [visualStylingData, setVisualStylingData] = useState<VisualStylingData | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-visual-styling-data');
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved visual styling data:', error);
       }
     }
     return null;
@@ -206,6 +222,7 @@ export default function PipelineBuilder() {
     connections: 'pipeline-builder-connections',
     evidenceData: 'pipeline-builder-evidence-data',
     styleData: 'pipeline-builder-style-data',
+    visualStylingData: 'pipeline-builder-visual-styling-data',
     personalData: 'pipeline-builder-personal-data',
     outputSelectorData: 'pipeline-builder-output-selector-data',
     selectedService: 'pipeline-builder-selected-service',
@@ -253,6 +270,11 @@ export default function PipelineBuilder() {
       } else {
         localStorage.removeItem(STORAGE_KEYS.styleData);
       }
+      if (visualStylingData) {
+        localStorage.setItem(STORAGE_KEYS.visualStylingData, JSON.stringify(visualStylingData));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.visualStylingData);
+      }
       if (personalData) {
         localStorage.setItem(STORAGE_KEYS.personalData, JSON.stringify(personalData));
       } else {
@@ -273,7 +295,7 @@ export default function PipelineBuilder() {
     } catch (error) {
       console.error('❌ Failed to save state to localStorage:', error);
     }
-  }, [nodes, connections, evidenceData, styleData, personalData, outputSelectorData, selectedService, customApiKey, promptText]);
+  }, [nodes, connections, evidenceData, styleData, visualStylingData, personalData, outputSelectorData, selectedService, customApiKey, promptText]);
 
   // Load state from localStorage
   const loadFromLocalStorage = useCallback(() => {
@@ -284,6 +306,7 @@ export default function PipelineBuilder() {
       const savedConnections = localStorage.getItem(STORAGE_KEYS.connections);
       const savedEvidenceData = localStorage.getItem(STORAGE_KEYS.evidenceData);
       const savedStyleData = localStorage.getItem(STORAGE_KEYS.styleData);
+      const savedVisualStylingData = localStorage.getItem(STORAGE_KEYS.visualStylingData);
       const savedPersonalData = localStorage.getItem(STORAGE_KEYS.personalData);
       const savedOutputSelectorData = localStorage.getItem(STORAGE_KEYS.outputSelectorData);
       const savedSelectedService = localStorage.getItem(STORAGE_KEYS.selectedService);
@@ -322,6 +345,11 @@ export default function PipelineBuilder() {
       if (savedStyleData) {
         setStyleData(JSON.parse(savedStyleData));
         // console.log('🎨 Restored style data from localStorage');
+      }
+
+      if (savedVisualStylingData) {
+        setVisualStylingData(JSON.parse(savedVisualStylingData));
+        // console.log('🎨 Restored visual styling data from localStorage');
       }
 
       if (savedPersonalData) {
@@ -446,7 +474,7 @@ export default function PipelineBuilder() {
           }
           return sourceNode.type;
         })
-        .filter(Boolean);
+        .filter((type): type is PipelineNode['type'] => type !== null);
 
       // Also track connected components with their specific IDs - only include existing nodes
       const connectedComponentsWithIds = connections
@@ -459,7 +487,7 @@ export default function PipelineBuilder() {
           }
           return { id: sourceNode.id, type: sourceNode.type };
         })
-        .filter(Boolean) as Array<{ id: string, type: string }>;
+        .filter((item): item is { id: string, type: PipelineNode['type'] } => item !== null);
 
       // Only update if the connected components actually changed
       const currentConnectedComponents = promptNode.data.connectedComponents || [];
@@ -534,6 +562,9 @@ export default function PipelineBuilder() {
         break;
       case 'style-personalization':
         setStyleModalOpen(true);
+        break;
+      case 'visual-styling':
+        setVisualStylingModalOpen(true);
         break;
       case 'personal-data':
         setPersonalDataModalOpen(true);
@@ -777,6 +808,7 @@ export default function PipelineBuilder() {
         onHoverChange={setHoveredComponentType}
         evidenceData={evidenceData}
         styleData={styleData}
+        visualStylingData={visualStylingData}
         personalData={personalData}
         outputSelectorData={outputSelectorData}
         promptText={promptText}
@@ -807,6 +839,22 @@ export default function PipelineBuilder() {
         customApiKey={customApiKey}
         onDataUpdate={(data) => {
           setStyleData(data);
+          if (selectedNodeForConfig) {
+            setNodes(prev => prev.map(node =>
+              node.id === selectedNodeForConfig
+                ? { ...node, data: { ...node.data, configured: data !== null } }
+                : node
+            ));
+          }
+        }}
+      />
+
+      <VisualStylingModal
+        open={visualStylingModalOpen}
+        onOpenChange={setVisualStylingModalOpen}
+        existingData={visualStylingData}
+        onDataUpdate={(data) => {
+          setVisualStylingData(data);
           if (selectedNodeForConfig) {
             setNodes(prev => prev.map(node =>
               node.id === selectedNodeForConfig
@@ -883,6 +931,7 @@ export default function PipelineBuilder() {
           setConnections([]);
           setEvidenceData(null);
           setStyleData(null);
+          setVisualStylingData(null);
           setPersonalData(null);
           setOutputSelectorData(null);
           setSelectedService('gemini');

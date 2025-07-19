@@ -5,6 +5,7 @@ import {
   BasePromptSection,
   EvidencePromptSection,
   StylePromptSection,
+  VisualStylingPromptSection,
   PersonalDataPromptSection,
   OutputSelectorPromptSection
 } from './prompt-sections';
@@ -48,6 +49,26 @@ interface PromptNodeData {
   personalData?: {
     averageDailySteps?: number;
     averageHeartRate?: number;
+  };
+  visualStylingData?: {
+    videoStyle?: {
+      colorScheme?: string;
+      visualTheme?: string;
+      fontStyle?: string;
+      layoutStyle?: string;
+      backgroundStyle?: string;
+      animationLevel?: string;
+    };
+    podcastThumbnail?: {
+      colorScheme?: string;
+      designTheme?: string;
+      fontStyle?: string;
+      layoutType?: string;
+      backgroundStyle?: string;
+      iconStyle?: string;
+    };
+    healthFocus?: string;
+    targetDemographic?: string;
   };
   outputSelectorData?: {
     selectedFormat?: string;
@@ -110,6 +131,35 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
       }
       finalPrompt += `Target Audience: ${data.styleData.targetAudience || 'Style will be loaded here'}\n`;
       finalPrompt += `Content Structure: ${data.styleData.contentStructure || 'Style will be loaded here'}\n\n`;
+    }
+    
+    // Add visual styling if connected
+    if (connectedComponentsWithIds.some(c => c.type === 'visual-styling') && data.visualStylingData) {
+      finalPrompt += `VISUAL STYLING:\n`;
+      
+      if (data.visualStylingData.videoStyle) {
+        finalPrompt += `Video Style:\n`;
+        if (data.visualStylingData.videoStyle.colorScheme) finalPrompt += `- Color Scheme: ${data.visualStylingData.videoStyle.colorScheme}\n`;
+        if (data.visualStylingData.videoStyle.visualTheme) finalPrompt += `- Design Theme: ${data.visualStylingData.videoStyle.visualTheme}\n`;
+        if (data.visualStylingData.videoStyle.fontStyle) finalPrompt += `- Font Style: ${data.visualStylingData.videoStyle.fontStyle}\n`;
+        if (data.visualStylingData.videoStyle.layoutStyle) finalPrompt += `- Layout Style: ${data.visualStylingData.videoStyle.layoutStyle}\n`;
+        if (data.visualStylingData.videoStyle.backgroundStyle) finalPrompt += `- Background Style: ${data.visualStylingData.videoStyle.backgroundStyle}\n`;
+        if (data.visualStylingData.videoStyle.animationLevel) finalPrompt += `- Animation Level: ${data.visualStylingData.videoStyle.animationLevel}\n`;
+      }
+      
+      if (data.visualStylingData.podcastThumbnail) {
+        finalPrompt += `Podcast Thumbnail:\n`;
+        if (data.visualStylingData.podcastThumbnail.colorScheme) finalPrompt += `- Color Scheme: ${data.visualStylingData.podcastThumbnail.colorScheme}\n`;
+        if (data.visualStylingData.podcastThumbnail.designTheme) finalPrompt += `- Design Theme: ${data.visualStylingData.podcastThumbnail.designTheme}\n`;
+        if (data.visualStylingData.podcastThumbnail.fontStyle) finalPrompt += `- Font Style: ${data.visualStylingData.podcastThumbnail.fontStyle}\n`;
+        if (data.visualStylingData.podcastThumbnail.layoutType) finalPrompt += `- Layout Type: ${data.visualStylingData.podcastThumbnail.layoutType}\n`;
+        if (data.visualStylingData.podcastThumbnail.backgroundStyle) finalPrompt += `- Background Style: ${data.visualStylingData.podcastThumbnail.backgroundStyle}\n`;
+        if (data.visualStylingData.podcastThumbnail.iconStyle) finalPrompt += `- Icon Style: ${data.visualStylingData.podcastThumbnail.iconStyle}\n`;
+      }
+      
+      if (data.visualStylingData.healthFocus) finalPrompt += `Health Focus: ${data.visualStylingData.healthFocus}\n`;
+      if (data.visualStylingData.targetDemographic) finalPrompt += `Target Demographic: ${data.visualStylingData.targetDemographic}\n`;
+      finalPrompt += `\n`;
     }
     
     // Add personal data if connected
@@ -182,6 +232,14 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
                   highlighted={data.selectedComponentType === 'style-personalization'}
                   componentId={connectedComponentsWithIds.find(c => c.type === 'style-personalization')?.id}
                   styleData={data.styleData}
+                />
+              )}
+              
+              {connectedComponentsWithIds.some(c => c.type === 'visual-styling') && (
+                <VisualStylingPromptSection 
+                  highlighted={data.selectedComponentType === 'visual-styling'}
+                  componentId={connectedComponentsWithIds.find(c => c.type === 'visual-styling')?.id}
+                  visualStylingData={data.visualStylingData}
                 />
               )}
               

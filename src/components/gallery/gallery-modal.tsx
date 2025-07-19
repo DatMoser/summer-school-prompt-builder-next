@@ -22,12 +22,25 @@ interface GalleryModalProps {
 export default function GalleryModal({ open, onOpenChange, onCreateNew }: GalleryModalProps) {
   const [items, setItems] = useState<GalleryItemData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
 
-  // Load items from localStorage on mount
+  // Load items from localStorage on mount and set up auto-refresh for incomplete jobs
   useEffect(() => {
     if (open) {
       loadGalleryItems();
+      checkAndRefreshIncompleteJobs();
     }
+  }, [open]);
+
+  // Auto-refresh incomplete jobs when gallery is open
+  useEffect(() => {
+    if (!open) return;
+
+    const interval = setInterval(() => {
+      checkAndRefreshIncompleteJobs();
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(interval);
   }, [open]);
 
   const loadGalleryItems = () => {
@@ -52,6 +65,84 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
     }
   };
 
+  const checkAndRefreshIncompleteJobs = async () => {
+    try {
+      const savedItems = localStorage.getItem('pipeline-builder-generation-history');
+      if (!savedItems) return;
+
+      const history = JSON.parse(savedItems);
+      const incompleteJobs = history.filter((item: any) => 
+        item.status === 'started' || item.status === 'queued'
+      );
+
+      if (incompleteJobs.length === 0) {
+        setLastRefreshTime(new Date());
+        return;
+      }
+
+      let hasUpdates = false;
+
+      // Check status for each incomplete job
+      for (const job of incompleteJobs) {
+        try {
+          const response = await fetch(`/api/generate/${job.id}`);
+          if (response.ok) {
+            const statusData = await response.json();
+            
+            // Find and update the job in history
+            const jobIndex = history.findIndex((item: any) => item.id === job.id);
+            if (jobIndex !== -1) {
+              const updatedJob = {
+                ...history[jobIndex],
+                status: statusData.status,
+                progress: statusData.progress || history[jobIndex].progress,
+                lastUpdated: new Date().toISOString()
+              };
+
+              // Add completion data if finished
+              if (statusData.status === 'finished') {
+                updatedJob.downloadUrl = statusData.downloadUrl || '';
+                updatedJob.thumbnailUrl = statusData.thumbnailUrl;
+                updatedJob.duration = statusData.duration;
+                updatedJob.fileSize = statusData.fileSize;
+                updatedJob.progress = 100;
+              } else if (statusData.status === 'failed') {
+                updatedJob.error = statusData.error || 'Generation failed';
+              }
+
+              history[jobIndex] = updatedJob;
+              hasUpdates = true;
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to check status for job ${job.id}:`, error);
+          
+          // Mark job as failed if we can't reach the API
+          const jobIndex = history.findIndex((item: any) => item.id === job.id);
+          if (jobIndex !== -1) {
+            history[jobIndex] = {
+              ...history[jobIndex],
+              status: 'failed',
+              error: 'Unable to connect to server',
+              lastUpdated: new Date().toISOString()
+            };
+            hasUpdates = true;
+          }
+        }
+      }
+
+      if (hasUpdates) {
+        localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
+        loadGalleryItems(); // Reload items to reflect updates
+      }
+
+      setLastRefreshTime(new Date());
+    } catch (error) {
+      console.error('Failed to refresh incomplete jobs:', error);
+      setLastRefreshTime(new Date());
+    }
+  };
+
   const saveGalleryItems = (updatedItems: GalleryItemData[]) => {
     try {
       localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(updatedItems));
@@ -65,20 +156,24 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
 
   const handlePreviewItem = (item: GalleryItemData) => {
     // Open item in new tab for preview
-    window.open(item.downloadUrl, '_blank');
+    if (item.downloadUrl) {
+      window.open(item.downloadUrl, '_blank');
+    }
   };
 
   const handleRefresh = () => {
     loadGalleryItems();
+    checkAndRefreshIncompleteJobs();
   };
 
   const getStats = () => {
-    const completed = items.filter(item => item.status === 'completed').length;
-    const processing = items.filter(item => item.status === 'processing').length;
+    const completed = items.filter(item => item.status === 'finished' || item.status === 'completed').length;
+    const processing = items.filter(item => item.status === 'started' || item.status === 'queued' || item.status === 'processing').length;
+    const failed = items.filter(item => item.status === 'failed').length;
     const videos = items.filter(item => item.format === 'video').length;
     const audio = items.filter(item => item.format === 'audio').length;
     
-    return { completed, processing, videos, audio, total: items.length };
+    return { completed, processing, failed, videos, audio, total: items.length };
   };
 
   const stats = getStats();
@@ -141,6 +236,11 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
                 Processing: {stats.processing}
               </Badge>
             )}
+            {stats.failed > 0 && (
+              <Badge variant="outline" className="bg-red-500/20 text-red-400 border-red-400/30">
+                Failed: {stats.failed}
+              </Badge>
+            )}
             <Badge variant="outline" className="bg-purple-500/20 text-purple-400 border-purple-400/30">
               Videos: {stats.videos}
             </Badge>
@@ -148,6 +248,13 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
               Podcasts: {stats.audio}
             </Badge>
           </div>
+          
+          {/* Last refresh time */}
+          {lastRefreshTime && (
+            <div className="text-xs text-gray-500 mt-2">
+              Last updated: {lastRefreshTime.toLocaleTimeString()}
+            </div>
+          )}
         </DialogHeader>
 
         {/* Actions Bar removed - no delete functionality */}

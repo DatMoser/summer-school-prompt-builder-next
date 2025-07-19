@@ -17,18 +17,24 @@ export interface GalleryItemData {
   id: string;
   title: string;
   format: 'video' | 'audio';
-  downloadUrl: string;
+  downloadUrl: string | null;
   thumbnailUrl?: string;
-  duration?: number;
-  fileSize?: number;
+  duration?: number | null;
+  fileSize?: number | null;
   createdAt: Date;
-  status: 'completed' | 'processing' | 'failed';
-  metadata: {
+  status: 'completed' | 'processing' | 'failed' | 'finished' | 'started' | 'queued';
+  progress?: number;
+  error?: string;
+  lastUpdated?: string;
+  metadata?: {
     evidenceUsed: boolean;
     styleUsed: boolean;
     personalDataUsed: boolean;
     connectedComponents?: string[];
   };
+  evidenceData?: any;
+  styleData?: any;
+  personalData?: any;
 }
 
 interface GalleryItemProps {
@@ -75,7 +81,9 @@ export default function GalleryItem({ item, onPreview }: GalleryItemProps) {
   };
 
   const handleDownload = () => {
-    window.open(item.downloadUrl, '_blank');
+    if (item.downloadUrl) {
+      window.open(item.downloadUrl, '_blank');
+    }
   };
 
   const handlePreview = () => {
@@ -174,17 +182,17 @@ export default function GalleryItem({ item, onPreview }: GalleryItemProps) {
 
             {/* Usage Indicators */}
             <div className="flex gap-1 mt-2">
-              {item.metadata.evidenceUsed && (
+              {item.metadata?.evidenceUsed && (
                 <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-400/30 text-xs px-2 py-0">
                   Evidence
                 </Badge>
               )}
-              {item.metadata.styleUsed && (
+              {item.metadata?.styleUsed && (
                 <Badge variant="outline" className="bg-purple-500/20 text-purple-400 border-purple-400/30 text-xs px-2 py-0">
                   Style
                 </Badge>
               )}
-              {item.metadata.personalDataUsed && (
+              {item.metadata?.personalDataUsed && (
                 <Badge variant="outline" className="bg-blue-500/20 text-blue-400 border-blue-400/30 text-xs px-2 py-0">
                   Personal
                 </Badge>

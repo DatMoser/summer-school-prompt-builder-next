@@ -177,10 +177,10 @@ export default function StylePersonalizationModal({
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold flex items-center gap-2">
             <User className="text-yellow-400" size={20} />
-            Style Personalization
+            Conversational Style
           </DialogTitle>
           <DialogDescription className="text-gray-400">
-            Customize the communication style for your content, or use AI to generate a style preset
+            Configure the communication tone, pace, vocabulary and speaking style for your content
           </DialogDescription>
         </DialogHeader>
 

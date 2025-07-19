@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Upload, Youtube, User, Play, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Upload, Youtube, Palette, Paintbrush, User, Play, Zap, Stethoscope } from 'lucide-react';
 import { PipelineNode } from '@/lib/pipeline-types';
 
 interface ComponentSidebarProps {
@@ -47,7 +47,16 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
               draggable
               onDragStart={(e) => onDragStart(e, 'style-personalization')}
             >
-              <Youtube size={20} className="text-white" />
+              <Palette size={20} className="text-white" />
+            </div>
+          )}
+          {!isNodeUsed('visual-styling') && (
+            <div
+              className="w-10 h-10 bg-pink-500 rounded-lg flex items-center justify-center cursor-grab hover:bg-pink-600 transition-colors"
+              draggable
+              onDragStart={(e) => onDragStart(e, 'visual-styling')}
+            >
+              <Paintbrush size={20} className="text-white" />
             </div>
           )}
           {!isNodeUsed('personal-data') && (
@@ -56,7 +65,7 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
               draggable
               onDragStart={(e) => onDragStart(e, 'personal-data')}
             >
-              <User size={20} className="text-white" />
+              <Stethoscope size={20} className="text-white" />
             </div>
           )}
           {!isNodeUsed('output-selector') && (
@@ -108,7 +117,7 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Upload className="text-white text-lg" />
-                <h3 className="font-medium text-white">Evidence Input</h3>
+                <h3 className="font-medium text-white">Evidence-Based Input</h3>
               </div>
               <div className="text-emerald-200">⋮</div>
             </div>
@@ -130,13 +139,13 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
           >
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Youtube className="text-white text-lg" />
-                <h3 className="font-medium text-white">Style Personalization</h3>
+                <Palette className="text-white text-lg" />
+                <h3 className="font-medium text-white">Conversational Style</h3>
               </div>
               <div className="text-yellow-200">⋮</div>
             </div>
             <p className="text-yellow-100 text-sm">
-              Extract conversational style from YouTube videos
+              Configure tone, pace, vocabulary and speaking style
             </p>
             <div className="flex justify-end items-center mt-3">
               <div className="w-3 h-3 bg-white rounded-full border-2 border-yellow-400" />
@@ -144,7 +153,30 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
           </div>
         )}
 
-        {/* Component 3: Personal Data */}
+        {/* Component 3: Visual Styling */}
+        {!isNodeUsed('visual-styling') && (
+          <div
+            className="bg-gradient-to-br from-pink-500 to-pink-600 p-4 rounded-xl shadow-lg border border-pink-400/20 hover:shadow-pink-500/20 hover:shadow-xl cursor-grab active:cursor-grabbing transition-all"
+            draggable
+            onDragStart={(e) => onDragStart(e, 'visual-styling')}
+          >
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Paintbrush className="text-white text-lg" />
+                <h3 className="font-medium text-white">Visual Styling</h3>
+              </div>
+              <div className="text-pink-200">⋮</div>
+            </div>
+            <p className="text-pink-100 text-sm">
+              Unified visual design for videos and podcast thumbnails
+            </p>
+            <div className="flex justify-end items-center mt-3">
+              <div className="w-3 h-3 bg-white rounded-full border-2 border-pink-400" />
+            </div>
+          </div>
+        )}
+
+        {/* Component 4: Personal Data */}
         {!isNodeUsed('personal-data') && (
           <div
             className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg border border-blue-400/20 hover:shadow-blue-500/20 hover:shadow-xl cursor-grab active:cursor-grabbing transition-all"
@@ -153,8 +185,8 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
           >
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2">
-                <User className="text-white text-lg" />
-                <h3 className="font-medium text-white">Personal Data</h3>
+                <Stethoscope className="text-white text-lg" />
+                <h3 className="font-medium text-white">Personal Health Profile</h3>
               </div>
               <div className="text-blue-200">⋮</div>
             </div>
@@ -167,7 +199,7 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
           </div>
         )}
 
-        {/* Component 4: Output Selector */}
+        {/* Component 5: Output Selector */}
         {!isNodeUsed('output-selector') && (
           <div
             className="bg-gradient-to-br from-orange-500 to-orange-600 p-4 rounded-xl shadow-lg border border-orange-400/20 hover:shadow-orange-500/20 hover:shadow-xl cursor-grab active:cursor-grabbing transition-all"
@@ -177,7 +209,7 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Play className="text-white text-lg" />
-                <h3 className="font-medium text-white">Output Selector</h3>
+                <h3 className="font-medium text-white">Output Format</h3>
               </div>
               <div className="text-orange-200">⋮</div>
             </div>
@@ -190,7 +222,7 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
           </div>
         )}
 
-        {/* Component 5: AI Prompt */}
+        {/* Component 6: AI Prompt */}
         {!isNodeUsed('prompt') && (
           <div
             className="bg-gradient-to-br from-purple-600 to-purple-700 p-4 rounded-xl shadow-lg border border-purple-400/20 hover:shadow-purple-500/20 hover:shadow-xl cursor-grab active:cursor-grabbing transition-all"
@@ -214,7 +246,7 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
         )}
 
         {/* Show message when all components are used */}
-        {isNodeUsed('evidence-input') && isNodeUsed('style-personalization') && 
+        {isNodeUsed('evidence-input') && isNodeUsed('style-personalization') && isNodeUsed('visual-styling') &&
          isNodeUsed('personal-data') && isNodeUsed('output-selector') && isNodeUsed('prompt') && (
           <div className="text-center py-8">
             <div className="text-4xl mb-2">✅</div>
