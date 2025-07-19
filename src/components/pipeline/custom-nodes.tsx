@@ -7,7 +7,10 @@ interface NodeData {
   description: string;
   onConfigure: () => void;
   onDelete?: () => void;
-  configContent?: string; // Brief display of configuration
+  configContent?: {
+    primary: string;
+    secondary: string;
+  } | string; // Enhanced configuration display
   connected?: boolean; // Whether this node has outgoing connections
   activeHandle?: string; // The handle that's currently connected
   onHover?: (hovering: boolean) => void; // Hover event handler
@@ -38,27 +41,38 @@ export function EvidenceInputNode({ data, selected }: CustomNodeProps) {
             <Upload className="text-white text-lg" size={16} />
             <h3 className="font-medium text-white text-sm">{data.title}</h3>
           </div>
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${data.configured ? 'bg-green-500' : 'bg-yellow-500'}`}>
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all ${
+            data.configured 
+              ? 'bg-green-500 border-green-400' 
+              : 'bg-red-500 border-red-400 animate-pulse'
+          }`}>
             {data.configured ? (
-              <span className="text-white text-xs font-bold">✓</span>
+              <span className="text-white text-sm font-bold">✓</span>
             ) : (
-              <Settings size={10} className="text-white" />
+              <Settings size={12} className="text-white animate-spin" style={{ animationDuration: '3s' }} />
             )}
           </div>
         </div>
         
-        <div className={`text-xs mb-3 px-2 py-1 rounded-full text-center ${
+        <div className={`text-xs mb-3 px-3 py-2 rounded-lg text-center font-medium border ${
           data.configured 
-            ? 'bg-green-500/20 text-green-100 border border-green-400/30' 
-            : 'bg-yellow-500/20 text-yellow-100 border border-yellow-400/30'
+            ? 'bg-green-500/20 text-green-100 border-green-400/40' 
+            : 'bg-red-500/20 text-red-100 border-red-400/40 animate-pulse'
         }`}>
-          {data.configured ? "✓ Configured" : "⚠ Needs Configuration"}
+          {data.configured ? "✓ Configured" : "⚠ Click to Configure"}
         </div>
         
         {/* Configuration Content Display */}
         {data.configured && data.configContent && (
-          <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-lg p-2 mb-3 text-xs text-emerald-100">
-            <div className="truncate">{data.configContent}</div>
+          <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-lg p-3 mb-3 text-xs text-emerald-100">
+            {typeof data.configContent === 'string' ? (
+              <div className="truncate">{data.configContent}</div>
+            ) : (
+              <div className="space-y-1">
+                <div className="font-medium truncate">{data.configContent.primary}</div>
+                <div className="text-emerald-200/80 truncate text-[11px]">{data.configContent.secondary}</div>
+              </div>
+            )}
           </div>
         )}
         
@@ -119,27 +133,38 @@ export function StylePersonalizationNode({ data, selected }: CustomNodeProps) {
             <Palette className="text-white text-lg" size={16} />
             <h3 className="font-medium text-white text-sm">{data.title}</h3>
           </div>
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${data.configured ? 'bg-green-500' : 'bg-yellow-500'}`}>
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all ${
+            data.configured 
+              ? 'bg-green-500 border-green-400' 
+              : 'bg-red-500 border-red-400 animate-pulse'
+          }`}>
             {data.configured ? (
-              <span className="text-white text-xs font-bold">✓</span>
+              <span className="text-white text-sm font-bold">✓</span>
             ) : (
-              <Settings size={10} className="text-white" />
+              <Settings size={12} className="text-white animate-spin" style={{ animationDuration: '3s' }} />
             )}
           </div>
         </div>
         
-        <div className={`text-xs mb-3 px-2 py-1 rounded-full text-center ${
+        <div className={`text-xs mb-3 px-3 py-2 rounded-lg text-center font-medium border ${
           data.configured 
-            ? 'bg-green-500/20 text-green-100 border border-green-400/30' 
-            : 'bg-yellow-500/20 text-yellow-100 border border-yellow-400/30'
+            ? 'bg-green-500/20 text-green-100 border-green-400/40' 
+            : 'bg-red-500/20 text-red-100 border-red-400/40 animate-pulse'
         }`}>
-          {data.configured ? "✓ Configured" : "⚠ Needs Configuration"}
+          {data.configured ? "✓ Configured" : "⚠ Click to Configure"}
         </div>
         
         {/* Configuration Content Display */}
         {data.configured && data.configContent && (
-          <div className="bg-yellow-500/10 border border-yellow-400/20 rounded-lg p-2 mb-3 text-xs text-yellow-100">
-            <div className="truncate">{data.configContent}</div>
+          <div className="bg-yellow-500/10 border border-yellow-400/20 rounded-lg p-3 mb-3 text-xs text-yellow-100">
+            {typeof data.configContent === 'string' ? (
+              <div className="truncate">{data.configContent}</div>
+            ) : (
+              <div className="space-y-1">
+                <div className="font-medium truncate">{data.configContent.primary}</div>
+                <div className="text-yellow-200/80 truncate text-[11px]">{data.configContent.secondary}</div>
+              </div>
+            )}
           </div>
         )}
         
@@ -200,27 +225,38 @@ export function PersonalDataNode({ data, selected }: CustomNodeProps) {
             <User className="text-white text-lg" size={16} />
             <h3 className="font-medium text-white text-sm">{data.title}</h3>
           </div>
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${data.configured ? 'bg-green-500' : 'bg-yellow-500'}`}>
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all ${
+            data.configured 
+              ? 'bg-green-500 border-green-400' 
+              : 'bg-red-500 border-red-400 animate-pulse'
+          }`}>
             {data.configured ? (
-              <span className="text-white text-xs font-bold">✓</span>
+              <span className="text-white text-sm font-bold">✓</span>
             ) : (
-              <Settings size={10} className="text-white" />
+              <Settings size={12} className="text-white animate-spin" style={{ animationDuration: '3s' }} />
             )}
           </div>
         </div>
         
-        <div className={`text-xs mb-3 px-2 py-1 rounded-full text-center ${
+        <div className={`text-xs mb-3 px-3 py-2 rounded-lg text-center font-medium border ${
           data.configured 
-            ? 'bg-green-500/20 text-green-100 border border-green-400/30' 
-            : 'bg-yellow-500/20 text-yellow-100 border border-yellow-400/30'
+            ? 'bg-green-500/20 text-green-100 border-green-400/40' 
+            : 'bg-red-500/20 text-red-100 border-red-400/40 animate-pulse'
         }`}>
-          {data.configured ? "✓ Configured" : "⚠ Needs Configuration"}
+          {data.configured ? "✓ Configured" : "⚠ Click to Configure"}
         </div>
         
         {/* Configuration Content Display */}
         {data.configured && data.configContent && (
-          <div className="bg-blue-500/10 border border-blue-400/20 rounded-lg p-2 mb-3 text-xs text-blue-100">
-            <div className="truncate">{data.configContent}</div>
+          <div className="bg-blue-500/10 border border-blue-400/20 rounded-lg p-3 mb-3 text-xs text-blue-100">
+            {typeof data.configContent === 'string' ? (
+              <div className="truncate">{data.configContent}</div>
+            ) : (
+              <div className="space-y-1">
+                <div className="font-medium truncate">{data.configContent.primary}</div>
+                <div className="text-blue-200/80 truncate text-[11px]">{data.configContent.secondary}</div>
+              </div>
+            )}
           </div>
         )}
         
@@ -281,27 +317,38 @@ export function OutputSelectorNode({ data, selected }: CustomNodeProps) {
             <Settings className="text-white text-lg" size={16} />
             <h3 className="font-medium text-white text-sm">{data.title}</h3>
           </div>
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${data.configured ? 'bg-green-500' : 'bg-yellow-500'}`}>
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all ${
+            data.configured 
+              ? 'bg-green-500 border-green-400' 
+              : 'bg-red-500 border-red-400 animate-pulse'
+          }`}>
             {data.configured ? (
-              <span className="text-white text-xs font-bold">✓</span>
+              <span className="text-white text-sm font-bold">✓</span>
             ) : (
-              <Settings size={10} className="text-white" />
+              <Settings size={12} className="text-white animate-spin" style={{ animationDuration: '3s' }} />
             )}
           </div>
         </div>
         
-        <div className={`text-xs mb-3 px-2 py-1 rounded-full text-center ${
+        <div className={`text-xs mb-3 px-3 py-2 rounded-lg text-center font-medium border ${
           data.configured 
-            ? 'bg-green-500/20 text-green-100 border border-green-400/30' 
-            : 'bg-yellow-500/20 text-yellow-100 border border-yellow-400/30'
+            ? 'bg-green-500/20 text-green-100 border-green-400/40' 
+            : 'bg-red-500/20 text-red-100 border-red-400/40 animate-pulse'
         }`}>
-          {data.configured ? "✓ Configured" : "⚠ Needs Configuration"}
+          {data.configured ? "✓ Configured" : "⚠ Click to Configure"}
         </div>
         
         {/* Configuration Content Display */}
         {data.configured && data.configContent && (
-          <div className="bg-orange-500/10 border border-orange-400/20 rounded-lg p-2 mb-3 text-xs text-orange-100">
-            <div className="truncate">{data.configContent}</div>
+          <div className="bg-orange-500/10 border border-orange-400/20 rounded-lg p-3 mb-3 text-xs text-orange-100">
+            {typeof data.configContent === 'string' ? (
+              <div className="truncate">{data.configContent}</div>
+            ) : (
+              <div className="space-y-1">
+                <div className="font-medium truncate">{data.configContent.primary}</div>
+                <div className="text-orange-200/80 truncate text-[11px]">{data.configContent.secondary}</div>
+              </div>
+            )}
           </div>
         )}
         

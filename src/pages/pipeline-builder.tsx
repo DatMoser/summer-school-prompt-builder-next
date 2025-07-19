@@ -535,6 +535,80 @@ export default function PipelineBuilder() {
     );
   };
 
+  // Generate the final MCP-compatible prompt
+  const generateMCPPrompt = () => {
+    const promptNode = nodes.find(n => n.type === 'prompt');
+    const connectedComponents = promptNode?.data.connectedComponentsWithIds || [];
+    
+    let finalPrompt = "You are a health content generation assistant. Create personalized health content using the following data:\n\n";
+    
+    // Add evidence data if connected
+    if (connectedComponents.some(c => c.type === 'evidence-input') && evidenceData) {
+      finalPrompt += `EVIDENCE GUIDELINES:\n${evidenceData.summary}\n\n`;
+      finalPrompt += `KEY GUIDELINES:\n${evidenceData.extractedGuidelines.join('\n- ')}\n\n`;
+      if (evidenceData.fileContent) {
+        finalPrompt += `SOURCE CONTENT:\n${evidenceData.fileContent}\n\n`;
+      }
+    }
+    
+    // Add style data if connected
+    if (connectedComponents.some(c => c.type === 'style-personalization') && styleData) {
+      finalPrompt += `COMMUNICATION STYLE:\n`;
+      finalPrompt += `Tone: ${styleData.tone}\n`;
+      finalPrompt += `Pace: ${styleData.pace}\n`;
+      finalPrompt += `Vocabulary: ${styleData.vocabulary}\n`;
+      
+      // Include advanced fields if they have values
+      if (styleData.energy) {
+        finalPrompt += `Energy: ${styleData.energy}\n`;
+      }
+      if (styleData.formality) {
+        finalPrompt += `Formality: ${styleData.formality}\n`;
+      }
+      if (styleData.humor) {
+        finalPrompt += `Humor: ${styleData.humor}\n`;
+      }
+      if (styleData.empathy) {
+        finalPrompt += `Empathy: ${styleData.empathy}\n`;
+      }
+      if (styleData.confidence) {
+        finalPrompt += `Confidence: ${styleData.confidence}\n`;
+      }
+      if (styleData.storytelling) {
+        finalPrompt += `Storytelling: ${styleData.storytelling}\n`;
+      }
+      
+      if (styleData.keyPhrases?.length) {
+        finalPrompt += `\nKEY PHRASES:\n${styleData.keyPhrases.join(', ')}\n\n`;
+      }
+      finalPrompt += `TARGET AUDIENCE:\n${styleData.targetAudience}\n`;
+      finalPrompt += `CONTENT STRUCTURE:\n${styleData.contentStructure}\n\n`;
+    }
+    
+    // Add personal data if connected
+    if (connectedComponents.some(c => c.type === 'personal-data') && personalData) {
+      finalPrompt += `PERSONAL HEALTH METRICS:\n`;
+      finalPrompt += `Average Daily Steps: ${personalData.averageDailySteps}\n`;
+      finalPrompt += `Average Heart Rate: ${personalData.averageHeartRate} BPM\n\n`;
+      finalPrompt += `Use this data to personalize health content and recommendations.\n\n`;
+    }
+    
+    // Add output format if connected
+    if (connectedComponents.some(c => c.type === 'output-selector') && outputSelectorData) {
+      finalPrompt += `OUTPUT FORMAT: ${outputSelectorData.selectedFormat}\n\n`;
+      finalPrompt += `Generate content optimized for ${outputSelectorData.selectedFormat} format.\n\n`;
+    }
+    
+    // Add custom instructions
+    if (promptNode?.data.customText) {
+      finalPrompt += `ADDITIONAL INSTRUCTIONS:\n${promptNode.data.customText}\n\n`;
+    } else {
+      finalPrompt += `Create comprehensive, evidence-based health content that follows the communication style and incorporates personal health data for personalization.\n\n`;
+    }
+    
+    return finalPrompt.trim();
+  };
+
   const handleGenerate = () => {
     // Check if we have a prompt node and basic requirements
     const promptNode = nodes.find(n => n.type === 'prompt');
@@ -564,10 +638,20 @@ export default function PipelineBuilder() {
     const format = outputSelectorData?.selectedFormat || 'video';
 
     try {
+      // Generate the final MCP-compatible prompt
+      const finalPrompt = generateMCPPrompt();
+      
+      // Prepare the MCP-compatible data
+      const mcpData = {
+        mode: format === 'podcast' ? 'audio' : 'video',
+        prompt: finalPrompt
+      };
+      
       // Prepare the pipeline run data
       const runData = {
         pipelineId: null,
         outputFormat: format,
+        mcpData: mcpData,
         evidenceData: evidenceData,
         styleData: styleData,
         personalData: personalData,

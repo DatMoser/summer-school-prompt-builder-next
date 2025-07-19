@@ -39,76 +39,108 @@ export default function OutputSelectorModal({ open, onOpenChange, onDataUpdate }
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2 mb-3">
-          <Button
-            variant="outline"
+        <div className="space-y-3 mb-4">
+          <div 
             onClick={() => setSelectedFormat('video')}
-            className={`w-full p-2 sm:p-3 text-left transition-all group border-2 ${
+            className={`w-full p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer group ${
               selectedFormat === 'video'
-                ? 'bg-blue-500/20 border-blue-500 hover:bg-blue-500/30'
-                : 'bg-gray-700 hover:bg-gray-600 border-gray-600'
+                ? 'bg-gradient-to-br from-blue-500/20 to-blue-600/20 border-blue-500 shadow-lg shadow-blue-500/20'
+                : 'bg-gradient-to-br from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 border-gray-600 hover:border-gray-500'
             }`}
           >
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className={`p-1.5 sm:p-2 rounded-full transition-all ${
-                selectedFormat === 'video' ? 'bg-blue-500/30' : 'bg-gray-600'
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-full transition-all duration-200 ${
+                selectedFormat === 'video' 
+                  ? 'bg-blue-500/30 ring-2 ring-blue-400/50' 
+                  : 'bg-gray-600 group-hover:bg-gray-500'
               }`}>
                 <Video 
-                  size={16} 
-                  className={`sm:w-5 sm:h-5 transition-colors ${
-                    selectedFormat === 'video' ? 'text-blue-400' : 'text-blue-500'
+                  size={20} 
+                  className={`transition-colors duration-200 ${
+                    selectedFormat === 'video' ? 'text-blue-300' : 'text-blue-400 group-hover:text-blue-300'
                   }`} 
                 />
               </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-sm sm:text-base">Video Content</h4>
-                <p className="text-xs text-gray-400">Personalized video with voiceover</p>
+              <div className="flex-1">
+                <h4 className={`font-semibold text-base mb-1 transition-colors ${
+                  selectedFormat === 'video' ? 'text-blue-100' : 'text-white group-hover:text-blue-100'
+                }`}>
+                  Video Content
+                </h4>
+                <p className="text-sm text-gray-400 group-hover:text-gray-300">
+                  Personalized video with voiceover and visual elements
+                </p>
+              </div>
+              <div className={`w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
+                selectedFormat === 'video'
+                  ? 'border-blue-400 bg-blue-500'
+                  : 'border-gray-500 group-hover:border-gray-400'
+              }`}>
+                {selectedFormat === 'video' && (
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                )}
               </div>
             </div>
-          </Button>
+          </div>
           
-          <Button
-            variant="outline"
+          <div 
             onClick={() => setSelectedFormat('podcast')}
-            className={`w-full p-2 sm:p-3 text-left transition-all group border-2 ${
+            className={`w-full p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer group ${
               selectedFormat === 'podcast'
-                ? 'bg-purple-500/20 border-purple-500 hover:bg-purple-500/30'
-                : 'bg-gray-700 hover:bg-gray-600 border-gray-600'
+                ? 'bg-gradient-to-br from-purple-500/20 to-purple-600/20 border-purple-500 shadow-lg shadow-purple-500/20'
+                : 'bg-gradient-to-br from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 border-gray-600 hover:border-gray-500'
             }`}
           >
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className={`p-1.5 sm:p-2 rounded-full transition-all ${
-                selectedFormat === 'podcast' ? 'bg-purple-500/30' : 'bg-gray-600'
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-full transition-all duration-200 ${
+                selectedFormat === 'podcast' 
+                  ? 'bg-purple-500/30 ring-2 ring-purple-400/50' 
+                  : 'bg-gray-600 group-hover:bg-gray-500'
               }`}>
                 <Podcast 
-                  size={16} 
-                  className={`sm:w-5 sm:h-5 transition-colors ${
-                    selectedFormat === 'podcast' ? 'text-purple-400' : 'text-purple-500'
+                  size={20} 
+                  className={`transition-colors duration-200 ${
+                    selectedFormat === 'podcast' ? 'text-purple-300' : 'text-purple-400 group-hover:text-purple-300'
                   }`} 
                 />
               </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-sm sm:text-base">Podcast Episode</h4>
-                <p className="text-xs text-gray-400">Personalized audio content</p>
+              <div className="flex-1">
+                <h4 className={`font-semibold text-base mb-1 transition-colors ${
+                  selectedFormat === 'podcast' ? 'text-purple-100' : 'text-white group-hover:text-purple-100'
+                }`}>
+                  Podcast Episode
+                </h4>
+                <p className="text-sm text-gray-400 group-hover:text-gray-300">
+                  Personalized audio content with natural voice narration
+                </p>
+              </div>
+              <div className={`w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
+                selectedFormat === 'podcast'
+                  ? 'border-purple-400 bg-purple-500'
+                  : 'border-gray-500 group-hover:border-gray-400'
+              }`}>
+                {selectedFormat === 'podcast' && (
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                )}
               </div>
             </div>
-          </Button>
+          </div>
         </div>
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-3 pt-2">
           <Button
             variant="outline"
             onClick={handleCancel}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 border-gray-600 text-sm py-2"
+            className="flex-1 bg-gray-700 hover:bg-gray-600 border-gray-600 text-white py-2.5"
           >
             Cancel
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={!selectedFormat}
-            className="flex-1 bg-orange-500 hover:bg-orange-600 text-sm py-2"
+            className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-600/50 disabled:cursor-not-allowed text-white py-2.5 font-medium"
           >
-            Confirm
+            Confirm Selection
           </Button>
         </div>
       </DialogContent>

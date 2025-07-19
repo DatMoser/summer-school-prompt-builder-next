@@ -201,13 +201,25 @@ function CanvasWorkspaceContent({
 
     switch (nodeType) {
       case 'evidence-input':
-        return evidenceData ? `File: ${evidenceData.fileName}` : undefined;
+        return evidenceData ? {
+          primary: `File: ${evidenceData.fileName}`,
+          secondary: evidenceData.summary ? `${evidenceData.summary.substring(0, 50)}...` : 'Evidence guidelines loaded'
+        } : undefined;
       case 'style-personalization':
-        return styleData ? `YouTube: ${styleData.youtubeUrl.split('v=')[1]?.substring(0, 8) || 'Configured'}` : undefined;
+        return styleData ? {
+          primary: `Tone: ${styleData.tone}`,
+          secondary: `Target: ${styleData.targetAudience}${styleData.keyPhrases?.length ? ` • ${styleData.keyPhrases.length} phrases` : ''}`
+        } : undefined;
       case 'personal-data':
-        return personalData ? `Steps: ${personalData.averageDailySteps}, HR: ${personalData.averageHeartRate}` : undefined;
+        return personalData ? {
+          primary: `${personalData.age}yr ${personalData.biologicalSex} • ${personalData.averageDailySteps} steps/day`,
+          secondary: `Goals: ${personalData.fitnessGoals}${personalData.restingHeartRate ? ` • RHR: ${personalData.restingHeartRate}` : ''}`
+        } : undefined;
       case 'output-selector':
-        return outputSelectorData ? `Format: ${outputSelectorData.selectedFormat}` : undefined;
+        return outputSelectorData ? {
+          primary: `Format: ${outputSelectorData.selectedFormat.charAt(0).toUpperCase() + outputSelectorData.selectedFormat.slice(1)}`,
+          secondary: outputSelectorData.selectedFormat === 'video' ? 'Personalized video with voiceover' : 'Personalized audio content'
+        } : undefined;
       default:
         return undefined;
     }
@@ -283,6 +295,11 @@ function CanvasWorkspaceContent({
               );
               onNodesChange(updatedNodes);
             },
+            // Pass the actual data for real-time prompt generation
+            evidenceData,
+            styleData,
+            personalData,
+            outputSelectorData,
           },
         };
       }

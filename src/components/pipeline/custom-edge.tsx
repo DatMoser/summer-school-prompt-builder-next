@@ -90,6 +90,7 @@ export default function CustomEdge({
         strokeOpacity={0}
         strokeWidth={20}
         className="react-flow__edge-interaction"
+        style={{ cursor: 'pointer' }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       />
@@ -105,7 +106,7 @@ export default function CustomEdge({
         >
           <button
             onClick={handleDeleteClick}
-            className="w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-200 hover:scale-110"
+            className="w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-200 hover:scale-110 cursor-pointer"
             title="Delete connection"
             onMouseEnter={() => setIsHovered(true)}
           >

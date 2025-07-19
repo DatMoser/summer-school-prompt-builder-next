@@ -34,13 +34,15 @@ export function EvidencePromptSection({ onRemove, highlighted, componentId }: Pr
         </button>
       )}
       <div className="text-xs text-purple-100 font-mono whitespace-pre-wrap">
-        <div className="text-purple-300 font-medium mb-1">📄 Evidence Data Provider</div>
-{`Data Source: Evidence Guidelines
-Content: {{evidenceText}}
-Format: PDF/TXT research guidelines
+        <div className="text-purple-300 font-medium mb-1">📄 Evidence Guidelines</div>
+{`EVIDENCE GUIDELINES:
+{{evidenceData.summary}}
 
-This component provides evidence-based research content that will be 
-passed to the MCP server for health content generation.`}
+KEY GUIDELINES:
+{{evidenceData.extractedGuidelines}}
+
+SOURCE CONTENT:
+{{evidenceData.fileContent}}`}
       </div>
     </div>
   );
@@ -64,13 +66,26 @@ export function StylePromptSection({ onRemove, highlighted, componentId }: Promp
         </button>
       )}
       <div className="text-xs text-purple-100 font-mono whitespace-pre-wrap">
-        <div className="text-purple-300 font-medium mb-1">🎨 Style Data Provider</div>
-{`Data Source: Communication Style Analysis
-Content: {{styleDescription}}
-Format: YouTube video analysis results
+        <div className="text-purple-300 font-medium mb-1">🎨 Communication Style</div>
+{`COMMUNICATION STYLE:
+Tone: {{styleData.tone}}
+Pace: {{styleData.pace}}
+Vocabulary: {{styleData.vocabulary}}
+Energy: {{styleData.energy}}
+Formality: {{styleData.formality}}
+Humor: {{styleData.humor}}
+Empathy: {{styleData.empathy}}
+Confidence: {{styleData.confidence}}
+Storytelling: {{styleData.storytelling}}
 
-This component provides communication style preferences extracted from 
-YouTube content that will be passed to the MCP server.`}
+KEY PHRASES:
+{{styleData.keyPhrases}}
+
+TARGET AUDIENCE:
+{{styleData.targetAudience}}
+
+CONTENT STRUCTURE:
+{{styleData.contentStructure}}`}
       </div>
     </div>
   );
@@ -94,13 +109,12 @@ export function PersonalDataPromptSection({ onRemove, highlighted, componentId }
         </button>
       )}
       <div className="text-xs text-purple-100 font-mono whitespace-pre-wrap">
-        <div className="text-purple-300 font-medium mb-1">🏥 Personal Data Provider</div>
-{`Data Source: Personal Health Metrics
-Content: {{personalMetrics}}
-Format: Health data and preferences
+        <div className="text-purple-300 font-medium mb-1">🏥 Personal Health Data</div>
+{`PERSONAL HEALTH METRICS:
+Average Daily Steps: {{personalData.averageDailySteps}}
+Average Heart Rate: {{personalData.averageHeartRate}} BPM
 
-This component provides personal health information and preferences 
-that will be passed to the MCP server for personalized content.`}
+Use this data to personalize health content and recommendations.`}
       </div>
     </div>
   );
@@ -124,13 +138,10 @@ export function OutputSelectorPromptSection({ onRemove, highlighted, componentId
         </button>
       )}
       <div className="text-xs text-purple-100 font-mono whitespace-pre-wrap">
-        <div className="text-purple-300 font-medium mb-1">📺 Output Data Provider</div>
-{`Data Source: Output Format Preferences
-Content: {{outputFormat}}
-Format: Video or podcast format selection
+        <div className="text-purple-300 font-medium mb-1">📺 Output Format</div>
+{`OUTPUT FORMAT: {{outputData.selectedFormat}}
 
-This component provides output format preferences that will be 
-passed to the MCP server for content generation.`}
+Generate content optimized for {{outputData.selectedFormat}} format.`}
       </div>
     </div>
   );

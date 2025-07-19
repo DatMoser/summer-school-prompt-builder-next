@@ -19,15 +19,45 @@ Focus on extracting actionable insights that could be used to replicate this com
 Transcript:
 `;
 
+const STYLE_PRESET_PROMPT = `
+Generate a communication style preset based on the description provided. Create a detailed style profile that could be used for content generation. Return ONLY a JSON object with the following format:
+
+{
+  "tone": "Descriptive tone (e.g., 'Confident and assertive', 'Warm and approachable')",
+  "pace": "Speaking/content pace (e.g., 'Fast-paced and energetic', 'Measured and deliberate')",
+  "vocabulary": "Language style (e.g., 'Simple, everyday language', 'Sophisticated and articulate')",
+  "energy": "Energy level (e.g., 'High energy and animated', 'Calm and composed')",
+  "formality": "Formality level (e.g., 'Very informal and casual', 'Highly formal and structured')",
+  "humor": "Humor style (e.g., 'Frequent jokes and humor', 'Serious, no humor', 'Occasional light humor')",
+  "empathy": "Empathy level (e.g., 'Highly empathetic and understanding', 'Direct and factual')",
+  "confidence": "Confidence level (e.g., 'Extremely confident and bold', 'Humble and self-questioning')",
+  "storytelling": "Storytelling approach (e.g., 'Lots of personal anecdotes', 'Data-driven examples', 'No storytelling')",
+  "keyPhrases": ["Array of 3-7 characteristic phrases or expressions"],
+  "targetAudience": "Primary audience (e.g., 'General public', 'Professionals', 'Young adults')",
+  "contentStructure": "Content organization (e.g., 'Clear bullet points', 'Narrative flow', 'Question and answer')"
+}
+
+Style description: `;
+
 export async function POST(request: NextRequest) {
   try {
-    const { transcript, customApiKey } = await request.json();
+    const { transcript, styleDescription, type, customApiKey } = await request.json();
 
-    if (!transcript) {
-      return NextResponse.json(
-        { error: 'Transcript is required' },
-        { status: 400 }
-      );
+    // Handle different request types
+    if (type === 'generate-preset') {
+      if (!styleDescription) {
+        return NextResponse.json(
+          { error: 'Style description is required for preset generation' },
+          { status: 400 }
+        );
+      }
+    } else {
+      if (!transcript) {
+        return NextResponse.json(
+          { error: 'Transcript is required for analysis' },
+          { status: 400 }
+        );
+      }
     }
 
     // Get API key from request header or environment
@@ -40,21 +70,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Analyzing transcript with Gemini Pro...');
-
     // Initialize Gemini
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-    // Create the full prompt
-    const fullPrompt = STYLE_ANALYSIS_PROMPT + transcript;
+    let fullPrompt: string;
+    let logMessage: string;
+
+    if (type === 'generate-preset') {
+      console.log('Generating style preset with Gemini Pro...');
+      fullPrompt = STYLE_PRESET_PROMPT + styleDescription;
+      logMessage = 'style preset generation';
+    } else {
+      console.log('Analyzing transcript with Gemini Pro...');
+      fullPrompt = STYLE_ANALYSIS_PROMPT + transcript;
+      logMessage = 'transcript analysis';
+    }
 
     // Generate the analysis
     const result = await model.generateContent(fullPrompt);
     const response = await result.response;
     const analysisText = response.text();
 
-    console.log('Raw Gemini response:', analysisText);
+    console.log(`Raw Gemini response for ${logMessage}:`, analysisText);
 
     // Try to parse the JSON response
     let styleAnalysis;
@@ -81,11 +119,19 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    return NextResponse.json({
-      success: true,
-      styleAnalysis,
-      transcript: transcript.substring(0, 500) + (transcript.length > 500 ? '...' : '') // Return truncated transcript for confirmation
-    });
+    if (type === 'generate-preset') {
+      return NextResponse.json({
+        success: true,
+        ...styleAnalysis, // Return the style preset directly
+        sourceDescription: `AI-generated: "${styleDescription}"`
+      });
+    } else {
+      return NextResponse.json({
+        success: true,
+        styleAnalysis,
+        transcript: transcript.substring(0, 500) + (transcript.length > 500 ? '...' : '') // Return truncated transcript for confirmation
+      });
+    }
 
   } catch (error) {
     console.error('Style analysis error:', error);

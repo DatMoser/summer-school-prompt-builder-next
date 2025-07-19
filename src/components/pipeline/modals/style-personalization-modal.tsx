@@ -4,845 +4,394 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Youtube, Loader2, Type, Search } from 'lucide-react';
+import { Loader2, Wand2, User, ChevronDown, ChevronUp } from 'lucide-react';
 import { StyleData } from '@/lib/pipeline-types';
-import GoogleSignIn from '@/components/auth/google-sign-in';
-
-// Helper function to extract YouTube video ID from URL
-function extractYouTubeVideoId(url: string): string | null {
-  if (!url || typeof url !== 'string') return null;
-  
-  // Remove whitespace and common URL prefixes
-  url = url.trim();
-  if (!url.startsWith('http') && !url.includes('youtube') && !url.includes('youtu.be')) {
-    // Assume it's just a video ID if it's 11 characters
-    if (url.match(/^[a-zA-Z0-9_-]{11}$/)) {
-      return url;
-    }
-    return null;
-  }
-
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|m\.youtube\.com\/watch\?v=|youtube\.com\/watch\?.*&v=)([^&\n?#]+)/,
-    /^([a-zA-Z0-9_-]{11})$/
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match && match[1] && match[1].length === 11) {
-      return match[1];
-    }
-  }
-  return null;
-}
-
-// Search YouTube videos with transcript availability - restricted to user's own uploads
-async function searchYouTubeVideos(query: string, accessToken?: string): Promise<any[]> {
-  if (!accessToken) {
-    throw new Error('Authentication required for YouTube search');
-  }
-
-  try {
-    console.log('🚀 Making API request to /api/youtube/search');
-    const response = await fetch('/api/youtube/search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`
-      },
-      body: JSON.stringify({ query, maxResults: 10, forMine: true })
-    });
-
-    console.log('💰 API response status:', response.status, response.statusText);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ API error response:', errorText);
-      throw new Error(`Failed to search YouTube videos: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('📊 API response data:', data);
-    console.log('📁 Videos in response:', data.videos?.length || 0);
-    
-    return data.videos || [];
-  } catch (error) {
-    console.error('❌ YouTube search error:', error);
-    throw error;
-  }
-}
-
-// Helper function to convert time string to seconds
-function parseTime(timeStr: string): number {
-  if (!timeStr) return 0;
-  
-  // Handle formats like "1:30", "90s", "1m30s", "90"
-  if (timeStr.includes(':')) {
-    const parts = timeStr.split(':').reverse();
-    let seconds = 0;
-    for (let i = 0; i < parts.length; i++) {
-      seconds += parseInt(parts[i]) * Math.pow(60, i);
-    }
-    return seconds;
-  } else if (timeStr.endsWith('s')) {
-    return parseInt(timeStr.slice(0, -1));
-  } else if (timeStr.endsWith('m')) {
-    return parseInt(timeStr.slice(0, -1)) * 60;
-  } else {
-    return parseInt(timeStr);
-  }
-}
-
-// Fetch YouTube transcript and analyze style using our server-side API
-async function fetchYouTubeTranscriptAndAnalyze(videoId: string, startTime?: string, endTime?: string, customApiKey?: string, accessToken?: string): Promise<{transcript: string, styleAnalysis: any}> {
-  try {
-    // Build the full YouTube URL from videoId
-    const youtubeUrl = `https://youtube.com/watch?v=${videoId}`;
-    
-    // Prepare request body
-    const requestBody: any = { url: youtubeUrl };
-    
-    // Convert time strings to seconds if provided
-    if (startTime) {
-      requestBody.startTime = parseTime(startTime);
-    }
-    if (endTime) {
-      requestBody.endTime = parseTime(endTime);
-    }
-    
-    console.log(`Fetching transcript and analyzing style for video: ${videoId}`);
-    
-    const headers: any = {
-      'Content-Type': 'application/json',
-    };
-    
-    // Add custom API key if provided
-    if (customApiKey) {
-      headers['x-gemini-api-key'] = customApiKey;
-    }
-    
-    // Add OAuth2 access token if provided (only needed for search functionality)
-    if (accessToken) {
-      console.log('Adding OAuth2 access token to request headers');
-      headers['Authorization'] = `Bearer ${accessToken}`;
-    }
-    
-    const response = await fetch('/api/transcribe', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      
-      // Handle specific error types from the new API
-      if (errorData.requiresAuth) {
-        throw new Error(
-          'Authentication required for YouTube transcript access.\n\n' +
-          '🔐 Please sign in with your Google account to access YouTube captions.\n' +
-          '📝 Alternatively, use the "Manual Description" tab to enter your communication style directly.'
-        );
-      }
-      
-      if (errorData.requiresSetup || errorData.requiresOAuth) {
-        throw new Error(
-          errorData.error + '\n\n' +
-          '🔧 Current Status: YouTube transcript functionality requires proper setup.\n' +
-          '📝 For now, please use the "Manual Description" tab to enter your communication style directly.'
-        );
-      }
-      
-      throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch transcript`);
-    }
-
-    const data = await response.json();
-    return {
-      transcript: data.transcript || '',
-      styleAnalysis: data.styleAnalysis || null
-    };
-    
-  } catch (error: any) {
-    if (error.message.includes('404')) {
-      throw new Error('Video not found. The video may be private, deleted, or the URL is incorrect.');
-    } else if (error.message.includes('403')) {
-      throw new Error('Access denied. The video may be private or restricted.');
-    } else if (error.message.includes('network')) {
-      throw new Error('Network error. Please check your internet connection and try again.');
-    } else {
-      throw error;
-    }
-  }
-}
-
-// Analyze transcript for style elements
-function analyzeTranscriptStyle(transcript: string): StyleData['extractedStyle'] {
-  const text = transcript.toLowerCase();
-  const sentences = transcript.split(/[.!?]+/).filter(s => s.trim().length > 0);
-  const words = transcript.split(/\s+/).filter(w => w.trim().length > 0);
-  
-  // Analyze tone
-  let tone = 'neutral';
-  if (text.includes('exciting') || text.includes('amazing') || text.includes('awesome')) {
-    tone = 'enthusiastic';
-  } else if (text.includes('professional') || text.includes('research') || text.includes('study')) {
-    tone = 'professional';
-  } else if (text.includes('hey') || text.includes('guys') || text.includes('cool')) {
-    tone = 'casual';
-  }
-  
-  // Analyze pace
-  const avgWordsPerSentence = words.length / sentences.length;
-  let pace = 'moderate';
-  if (avgWordsPerSentence < 8) {
-    pace = 'fast, short sentences';
-  } else if (avgWordsPerSentence > 15) {
-    pace = 'slow, detailed explanations';
-  }
-  
-  // Analyze vocabulary
-  const complexWords = words.filter(w => w.length > 8).length;
-  const complexityRatio = complexWords / words.length;
-  let vocabulary = 'simple';
-  if (complexityRatio > 0.15) {
-    vocabulary = 'technical';
-  } else if (complexityRatio > 0.08) {
-    vocabulary = 'moderate';
-  }
-  
-  // Extract key phrases (common 2-3 word combinations)
-  const keyPhrases = extractKeyPhrases(transcript);
-  
-  return {
-    tone,
-    pace,
-    vocabulary,
-    keyPhrases: keyPhrases.slice(0, 5) // Limit to top 5 phrases
-  };
-}
-
-// Analyze manual text for style elements
-function analyzeTextStyle(text: string): StyleData['extractedStyle'] {
-  return {
-    tone: 'user-defined',
-    pace: 'as described',
-    vocabulary: 'manual input',
-    keyPhrases: [text.substring(0, 50) + (text.length > 50 ? '...' : '')]
-  };
-}
-
-// Extract key phrases from text
-function extractKeyPhrases(text: string): string[] {
-  const words = text.toLowerCase().split(/\s+/).filter(w => w.match(/^[a-z]+$/));
-  const phrases: { [key: string]: number } = {};
-  
-  // Extract 2-word and 3-word phrases
-  for (let i = 0; i < words.length - 1; i++) {
-    const twoWord = `${words[i]} ${words[i + 1]}`;
-    phrases[twoWord] = (phrases[twoWord] || 0) + 1;
-    
-    if (i < words.length - 2) {
-      const threeWord = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
-      phrases[threeWord] = (phrases[threeWord] || 0) + 1;
-    }
-  }
-  
-  // Return most common phrases
-  return Object.entries(phrases)
-    .filter(([phrase, count]) => count > 1 && phrase.length > 4)
-    .sort(([, a], [, b]) => b - a)
-    .map(([phrase]) => phrase);
-}
 
 interface StylePersonalizationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  customApiKey?: string | null;
   onDataUpdate: (data: StyleData) => void;
-  customApiKey?: string;
-  customYouTubeApiKey?: string;
 }
 
-export default function StylePersonalizationModal({ open, onOpenChange, onDataUpdate, customApiKey, customYouTubeApiKey }: StylePersonalizationModalProps) {
-  const [inputMode, setInputMode] = useState<'search' | 'text'>('text');
-  const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [selectedVideo, setSelectedVideo] = useState<{id: string, title: string, channelTitle: string} | null>(null);
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
-  const [manualStyleDescription, setManualStyleDescription] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [styleAnalysis, setStyleAnalysis] = useState<StyleData['extractedStyle'] | null>(null);
-  const [transcriptData, setTranscriptData] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
+// Default style template
+const getDefaultStyle = (): StyleData => ({
+  tone: 'Professional and approachable',
+  pace: 'Moderate - not too fast, not too slow',
+  vocabulary: 'Clear and accessible language',
+  energy: '',
+  formality: '',
+  humor: '',
+  empathy: '',
+  confidence: '',
+  storytelling: '',
+  keyPhrases: [],
+  targetAudience: 'General health-conscious audience',
+  contentStructure: 'Clear introduction, main points, conclusion',
+  sourceDescription: 'Default template',
+  isAIGenerated: false
+});
 
-  // Debug effect to track searchResults changes
+export default function StylePersonalizationModal({ 
+  open, 
+  onOpenChange, 
+  customApiKey,
+  onDataUpdate 
+}: StylePersonalizationModalProps) {
+  const [styleData, setStyleData] = useState<StyleData>(getDefaultStyle());
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [keyPhrasesText, setKeyPhrasesText] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Convert key phrases array to text for editing
   useEffect(() => {
-    console.log('📊 searchResults changed:', searchResults.length, 'items');
-    if (searchResults.length > 0) {
-      console.log('📄 First result:', searchResults[0]);
-    }
-  }, [searchResults]);
+    setKeyPhrasesText(styleData.keyPhrases.join(', '));
+  }, [styleData.keyPhrases]);
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    
-    setIsSearching(true);
-    setError(null);
-    
-    try {
-      console.log('🔍 Starting search for:', searchQuery);
-      console.log('🔑 Access token available:', !!accessToken);
-      
-      const results = await searchYouTubeVideos(searchQuery, accessToken);
-      
-      console.log('✅ Search results received:', results.length, 'videos');
-      console.log('📊 Results data:', results);
-      
-      setSearchResults(results);
-      console.log('📁 Search results state updated');
-      
-      // Force a small delay to see if it's a timing issue
-      setTimeout(() => {
-        console.log('⏰ Delayed check - searchResults.length:', results.length);
-      }, 100);
-    } catch (error: any) {
-      console.error('❌ Failed to search videos:', error);
-      setError(error.message || 'Failed to search videos. Please try again.');
-    } finally {
-      setIsSearching(false);
-    }
+  // Update style data when key phrases text changes
+  const handleKeyPhrasesChange = (text: string) => {
+    setKeyPhrasesText(text);
+    const phrases = text.split(',').map(phrase => phrase.trim()).filter(phrase => phrase.length > 0);
+    setStyleData(prev => ({ ...prev, keyPhrases: phrases }));
   };
 
-  const handleVideoSelect = (video: any) => {
-    setSelectedVideo({
-      id: video.id,
-      title: video.snippet.title,
-      channelTitle: video.snippet.channelTitle
-    });
-    setYoutubeUrl(`https://youtube.com/watch?v=${video.id}`);
+  // Handle individual field changes
+  const handleFieldChange = (field: keyof StyleData, value: string) => {
+    setStyleData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAnalyze = async () => {
-    if (inputMode === 'search' && !youtubeUrl) return;
-    if (inputMode === 'text' && !manualStyleDescription) return;
+  // Generate style using AI
+  const generateAIStyle = async () => {
+    if (!aiPrompt.trim()) {
+      alert('Please describe the style you want to generate');
+      return;
+    }
 
-    setIsAnalyzing(true);
-    setError(null);
-    
+    setIsGenerating(true);
     try {
-      if (inputMode === 'search') {
-        // Extract video ID from YouTube URL
-        const videoId = extractYouTubeVideoId(youtubeUrl);
-        if (!videoId) {
-          throw new Error('Invalid YouTube URL. Please provide a valid YouTube video URL.');
-        }
+      const response = await fetch('/api/analyze-style', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(customApiKey && { 'x-gemini-api-key': customApiKey })
+        },
+        body: JSON.stringify({
+          styleDescription: aiPrompt,
+          type: 'generate-preset'
+        })
+      });
 
-        // Debug: Check authentication state
-        console.log('handleAnalyze: Authentication state:', {
-          isAuthenticated,
-          hasAccessToken: !!accessToken,
-          accessTokenLength: accessToken?.length || 0
-        });
-
-        // Fetch transcript and analyze with Gemini
-        const { transcript, styleAnalysis: geminiAnalysis } = await fetchYouTubeTranscriptAndAnalyze(
-          videoId, 
-          startTime, 
-          endTime, 
-          customApiKey,
-          accessToken
-        );
-        
-        if (!transcript || transcript.length === 0) {
-          throw new Error('No transcript available for this video. The video may not have captions enabled or may be unavailable.');
-        }
-
-        // Store the transcript
-        setTranscriptData(transcript);
-        
-        // Use Gemini analysis if available, otherwise fallback to local analysis
-        let finalStyleAnalysis;
-        if (geminiAnalysis) {
-          finalStyleAnalysis = {
-            tone: geminiAnalysis.tone || 'Analyzed',
-            pace: geminiAnalysis.pace || 'Moderate',
-            vocabulary: geminiAnalysis.vocabulary || 'Mixed',
-            keyPhrases: geminiAnalysis.keyPhrases || ['analyzed content'],
-            communicationStyle: geminiAnalysis.communicationStyle,
-            personalityTraits: geminiAnalysis.personalityTraits,
-            audience: geminiAnalysis.audience,
-            rawAnalysis: geminiAnalysis.rawAnalysis
-          };
-        } else {
-          // Fallback to local analysis
-          finalStyleAnalysis = analyzeTranscriptStyle(transcript);
-        }
-        
-        setStyleAnalysis(finalStyleAnalysis);
-        
-      } else {
-        // Analyze manual text description
-        const styleAnalysis = analyzeTextStyle(manualStyleDescription);
-        setStyleAnalysis(styleAnalysis);
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
       }
-    } catch (error: any) {
-      console.error('Failed to analyze style:', error);
-      let errorMessage = 'Failed to analyze style. Please try again.';
+
+      const result = await response.json();
       
-      if (error.message.includes('Invalid YouTube URL')) {
-        errorMessage = 'Invalid YouTube URL. Please check the URL format (e.g., https://youtube.com/watch?v=VIDEO_ID)';
-      } else if (error.message.includes('No transcript available')) {
-        errorMessage = 'No transcript available for this video. The video may not have auto-generated or manual captions enabled.';
-      } else if (error.message.includes('Video not found')) {
-        errorMessage = 'Video not found. The video may be private, deleted, or the URL is incorrect.';
-      } else if (error.message.includes('API key')) {
-        errorMessage = 'Gemini API key issue. The transcript was fetched but style analysis failed. Please check your API key.';
-      } else if (error.message.includes('quota') || error.message.includes('rate')) {
-        errorMessage = 'API quota exceeded or rate limited. Please try again later.';
-      } else if (error.message.includes('network')) {
-        errorMessage = 'Network error. Please check your internet connection and try again.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setError(errorMessage);
-      setStyleAnalysis(null);
+      // Update style data with AI-generated values
+      setStyleData({
+        tone: result.tone || styleData.tone,
+        pace: result.pace || styleData.pace,
+        vocabulary: result.vocabulary || styleData.vocabulary,
+        energy: result.energy || styleData.energy,
+        formality: result.formality || styleData.formality,
+        humor: result.humor || styleData.humor,
+        empathy: result.empathy || styleData.empathy,
+        confidence: result.confidence || styleData.confidence,
+        storytelling: result.storytelling || styleData.storytelling,
+        keyPhrases: result.keyPhrases || styleData.keyPhrases,
+        targetAudience: result.targetAudience || styleData.targetAudience,
+        contentStructure: result.contentStructure || styleData.contentStructure,
+        sourceDescription: `AI-generated: "${aiPrompt}"`,
+        isAIGenerated: true
+      });
+
+      setAiPrompt(''); // Clear the prompt after successful generation
+    } catch (error) {
+      console.error('Error generating AI style:', error);
+      alert('Failed to generate style. Please try again.');
     } finally {
-      setIsAnalyzing(false);
+      setIsGenerating(false);
     }
   };
 
   const handleConfirm = () => {
-    // For search mode, require analysis to be completed
-    if (inputMode === 'search' && !styleAnalysis) return;
-    
-    // For text mode, require manual description to be provided
-    if (inputMode === 'text' && !manualStyleDescription.trim()) return;
-    
-    const styleData: StyleData = {
-      youtubeUrl: inputMode === 'search' ? youtubeUrl : `Manual: ${manualStyleDescription.substring(0, 50)}...`,
-      startTime: inputMode === 'search' ? (startTime || undefined) : undefined,
-      endTime: inputMode === 'search' ? (endTime || undefined) : undefined,
-      transcript: inputMode === 'search' ? transcriptData : manualStyleDescription,
-      extractedStyle: inputMode === 'search' ? styleAnalysis! : {
-        tone: "User-defined style",
-        pace: "As described",
-        vocabulary: "Manual input",
-        keyPhrases: [manualStyleDescription.substring(0, 100)]
-      }
-    };
     onDataUpdate(styleData);
     onOpenChange(false);
-    
-    // Reset state
-    setYoutubeUrl('');
-    setVideos([]);
-    setSelectedVideo(null);
-    setStartTime('');
-    setEndTime('');
-    setManualStyleDescription('');
-    setStyleAnalysis(null);
-    setTranscriptData('');
-    setError(null);
-    setNextPageToken(null);
-    setHasMoreVideos(true);
   };
 
   const handleCancel = () => {
     onOpenChange(false);
-    setYoutubeUrl('');
-    setVideos([]);
-    setSelectedVideo(null);
-    setStartTime('');
-    setEndTime('');
-    setManualStyleDescription('');
-    setStyleAnalysis(null);
-    setTranscriptData('');
-    setError(null);
-    setNextPageToken(null);
-    setHasMoreVideos(true);
+    setStyleData(getDefaultStyle());
+    setAiPrompt('');
+  };
+
+  const isFormValid = () => {
+    return styleData.tone && styleData.pace && styleData.vocabulary && styleData.targetAudience;
   };
 
   return (
-    <Dialog open={open} onOpenChange={(newOpen) => {
-      console.log('Dialog onOpenChange called:', newOpen);
-      onOpenChange(newOpen);
-    }}>
-      <DialogContent 
-        className="bg-gray-800 border-gray-600 text-white max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto p-6"
-        onKeyDown={(e) => {
-          console.log('⌨️ Modal keydown:', e.key);
-          e.stopPropagation();
-        }}
-        onFocus={(e) => {
-          console.log('🎯 Modal focused');
-          e.stopPropagation();
-        }}
-        onBlur={(e) => {
-          console.log('🔴 Modal blurred');
-          e.stopPropagation();
-        }}
-        onClick={(e) => {
-          console.log('💱 Modal clicked');
-          e.stopPropagation();
-        }}
-      >
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-gray-800 border-gray-600 text-white max-w-2xl w-[90vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">Style Personalization</DialogTitle>
+          <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+            <User className="text-yellow-400" size={20} />
+            Style Personalization
+          </DialogTitle>
           <DialogDescription className="text-gray-400">
-            Describe your preferred communication style manually, or analyze your own uploaded YouTube videos
+            Customize the communication style for your content, or use AI to generate a style preset
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="space-y-4">
-          {/* Input mode selection */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <button
-              onClick={() => {
-                setInputMode('text');
-                setError(null); // Clear errors when switching modes
-              }}
-              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
-                inputMode === 'text' 
-                  ? 'bg-purple-600 text-white' 
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              <Type size={18} />
-              <span>Manual Description</span>
-            </button>
-            <button
-              onClick={() => {
-                setInputMode('search');
-                setError(null); // Clear errors when switching modes
-              }}
-              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
-                inputMode === 'search' 
-                  ? 'bg-purple-600 text-white' 
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              <Search size={18} />
-              <span>Search Your Videos</span>
-            </button>
-          </div>
 
-          {inputMode === 'text' ? (
-            <div>
-              <Label htmlFor="manual-style" className="text-sm font-medium text-gray-300 mb-2 block">
-                Describe Your Preferred Communication Style
-              </Label>
-              <Textarea
-                id="manual-style"
-                placeholder="Describe the tone, pace, vocabulary, and communication style you prefer. For example: 'I prefer a casual, conversational tone with simple language and short sentences. I like when explanations are friendly and encouraging...'"
-                value={manualStyleDescription}
-                onChange={(e) => setManualStyleDescription(e.target.value)}
-                className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500 min-h-[100px]"
-                rows={4}
-              />
-            </div>
-          ) : inputMode === 'search' ? (
-            <>
-              {/* Google Authentication */}
+        <div className="space-y-6">
+          {/* AI Style Generator Section */}
+          <div className="bg-yellow-500/10 border border-yellow-400/20 rounded-lg p-4">
+            <h3 className="text-yellow-300 font-medium mb-3 flex items-center gap-2">
+              <Wand2 size={16} />
+              AI Style Generator
+            </h3>
+            <div className="space-y-3">
               <div>
-                <Label className="text-sm font-medium text-gray-300 mb-2 block">
-                  Authentication Required
+                <Label htmlFor="ai-prompt" className="text-sm font-medium text-gray-300 mb-2 block">
+                  Describe the style you want
                 </Label>
-                <GoogleSignIn 
-                  onAuthChange={(isAuth, token) => {
-                    setIsAuthenticated(isAuth);
-                    setAccessToken(token);
-                  }}
+                <Textarea
+                  id="ai-prompt"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="e.g., 'Make it sound like Trump', 'Professional doctor explaining to patients', 'Energetic fitness influencer', 'Calm meditation instructor'"
+                  className="bg-gray-700 border-gray-600 text-gray-200 min-h-[80px]"
+                  rows={3}
                 />
               </div>
-
-              {/* Search Bar */}
-              <div>
-                <Label htmlFor="video-search" className="text-sm font-medium text-gray-300 mb-2 block">
-                  Search Your YouTube Videos
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="video-search"
-                    type="text"
-                    placeholder="Search your uploaded videos with transcripts..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      console.log('📝 Search query updated:', e.target.value);
-                      setSearchQuery(e.target.value);
-                    }}
-                    onFocus={(e) => {
-                      console.log('🎯 Search input focused');
-                      e.stopPropagation();
-                    }}
-                    onBlur={(e) => {
-                      console.log('🔴 Search input blurred');
-                      e.stopPropagation();
-                    }}
-                    className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500"
-                    disabled={!isAuthenticated}
-                    onKeyPress={(e) => {
-                      e.stopPropagation();
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleSearch();
-                      }
-                    }}
-                  />
-                  <Button
-                    onClick={handleSearch}
-                    disabled={!searchQuery.trim() || isSearching || !isAuthenticated}
-                    className="bg-purple-500 hover:bg-purple-600 px-3"
-                  >
-                    {isSearching ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Search className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Search Results Debug */}
-              <div className="text-xs text-gray-400">
-                Debug: {searchResults.length} results, searching: {isSearching ? 'yes' : 'no'}
-              </div>
-
-              {/* Search Results */}
-              {searchResults.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-300">
-                    Your Videos ({searchResults.length} Videos with Transcript Availability)
-                  </Label>
-                  <div className="max-h-48 overflow-y-auto space-y-2">
-                    {searchResults.map((video) => (
-                      <div
-                        key={video.id}
-                        onClick={() => handleVideoSelect(video)}
-                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                          selectedVideo?.id === video.id
-                            ? 'bg-purple-600/20 border-purple-500'
-                            : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0">
-                            <Youtube className="h-5 w-5 text-red-500" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h4 className="text-sm font-medium text-white truncate">
-                              {video.snippet.title}
-                            </h4>
-                            <p className="text-xs text-gray-400 mt-1">
-                              {video.snippet.channelTitle}
-                            </p>
-                            <p className="text-xs text-green-400 mt-1">
-                              ✓ Transcript Available
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Selected Video Display */}
-              {selectedVideo && (
-                <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-green-400 text-sm">
-                    <Youtube className="h-4 w-4" />
-                    <span className="font-medium">Selected:</span>
-                    <span className="truncate">{selectedVideo.title}</span>
-                  </div>
-                </div>
-              )}
-            </>
-          ) : null}
-
-          {/* Timestamp inputs - only for search mode */}
-          {inputMode === 'search' && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="start-time" className="text-sm font-medium text-gray-300 mb-2 block">
-                    Start Time (optional)
-                  </Label>
-                  <Input
-                    id="start-time"
-                    type="text"
-                    placeholder="e.g., 1:30 or 90s"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="end-time" className="text-sm font-medium text-gray-300 mb-2 block">
-                    End Time (optional)
-                  </Label>
-                  <Input
-                    id="end-time"
-                    type="text"
-                    placeholder="e.g., 5:00 or 300s"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-gray-400">
-                Specify time range to analyze specific segments for more precise style extraction
-              </p>
-            </>
-          )}
-
-          {/* Analyze Button - only for search mode */}
-          {inputMode === 'search' && (
-            <>
               <Button
-                onClick={handleAnalyze}
-                disabled={!youtubeUrl || isAnalyzing || !isAuthenticated}
-                className="w-full bg-purple-500 hover:bg-purple-600"
+                onClick={generateAIStyle}
+                disabled={isGenerating || !aiPrompt.trim()}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white"
               >
-                {isAnalyzing ? (
+                {isGenerating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Analyzing...
+                    Generating Style...
                   </>
                 ) : (
                   <>
-                    <Youtube className="mr-2 h-4 w-4" />
-                    Analyze Style
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Generate Style
                   </>
                 )}
               </Button>
-              
-              <div className="space-y-2">
-                {!customApiKey && (
-                  <p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded p-2">
-                    💡 For AI-powered style analysis, set up a Gemini API key in Settings. Without it, basic analysis will be used.
-                  </p>
-                )}
-                
-                <p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded p-2">
-                  ⚠️ You can only access transcripts from your own uploaded YouTube videos for privacy and copyright reasons.
-                </p>
-                
-                {customYouTubeApiKey && (
-                  <p className="text-xs text-blue-400 bg-blue-400/10 border border-blue-400/20 rounded p-2">
-                    🔑 YouTube API key configured for OAuth2 authentication.
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Error Display */}
-          {error && (
-            <div className="bg-red-500/10 border border-red-400/20 rounded-lg p-4">
-              <p className="text-red-400 text-sm">{error}</p>
             </div>
-          )}
+          </div>
 
-          {/* Transcript Preview */}
-          {transcriptData && inputMode === 'search' && (
-            <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4">
-              <h4 className="font-medium text-green-400 mb-2">✓ Transcript Successfully Fetched</h4>
-              <div className="text-sm text-gray-300">
-                <p className="mb-2">Transcript length: {transcriptData.length} characters</p>
-                <div className="bg-gray-800/50 rounded p-2 max-h-24 overflow-y-auto">
-                  <p className="text-xs text-gray-400 font-mono">
-                    {transcriptData.substring(0, 200)}{transcriptData.length > 200 ? '...' : ''}
+          {/* Basic Style Dimensions */}
+          <div className="space-y-4">
+            <h3 className="text-yellow-300 font-medium">Basic Dimensions</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="tone" className="text-sm font-medium text-gray-300 mb-2 block">
+                  Tone
+                </Label>
+                <Input
+                  id="tone"
+                  value={styleData.tone}
+                  onChange={(e) => handleFieldChange('tone', e.target.value)}
+                  placeholder="e.g., Professional, Casual, Authoritative"
+                  className="bg-gray-700 border-gray-600 text-gray-200"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="pace" className="text-sm font-medium text-gray-300 mb-2 block">
+                  Pace
+                </Label>
+                <Input
+                  id="pace"
+                  value={styleData.pace}
+                  onChange={(e) => handleFieldChange('pace', e.target.value)}
+                  placeholder="e.g., Fast-paced, Slow and deliberate"
+                  className="bg-gray-700 border-gray-600 text-gray-200"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="vocabulary" className="text-sm font-medium text-gray-300 mb-2 block">
+                  Vocabulary Level
+                </Label>
+                <Input
+                  id="vocabulary"
+                  value={styleData.vocabulary}
+                  onChange={(e) => handleFieldChange('vocabulary', e.target.value)}
+                  placeholder="e.g., Simple terms, Technical language"
+                  className="bg-gray-700 border-gray-600 text-gray-200"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="targetAudience" className="text-sm font-medium text-gray-300 mb-2 block">
+                  Target Audience
+                </Label>
+                <Input
+                  id="targetAudience"
+                  value={styleData.targetAudience}
+                  onChange={(e) => handleFieldChange('targetAudience', e.target.value)}
+                  placeholder="e.g., Healthcare professionals, General public"
+                  className="bg-gray-700 border-gray-600 text-gray-200"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="contentStructure" className="text-sm font-medium text-gray-300 mb-2 block">
+                Content Structure
+              </Label>
+              <Input
+                id="contentStructure"
+                value={styleData.contentStructure}
+                onChange={(e) => handleFieldChange('contentStructure', e.target.value)}
+                placeholder="e.g., Bullet points, Narrative flow"
+                className="bg-gray-700 border-gray-600 text-gray-200"
+              />
+            </div>
+          </div>
+
+          {/* Advanced Dimensions - Collapsible */}
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center gap-2 text-yellow-300 font-medium hover:text-yellow-200 transition-colors"
+            >
+              {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              Advanced Dimensions (Optional)
+            </button>
+
+            {showAdvanced && (
+              <div className="space-y-4 border-l-2 border-yellow-400/20 pl-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="energy" className="text-sm font-medium text-gray-300 mb-2 block">
+                      Energy Level
+                    </Label>
+                    <Input
+                      id="energy"
+                      value={styleData.energy}
+                      onChange={(e) => handleFieldChange('energy', e.target.value)}
+                      placeholder="e.g., High energy, Calm and composed"
+                      className="bg-gray-700 border-gray-600 text-gray-200"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="formality" className="text-sm font-medium text-gray-300 mb-2 block">
+                      Formality
+                    </Label>
+                    <Input
+                      id="formality"
+                      value={styleData.formality}
+                      onChange={(e) => handleFieldChange('formality', e.target.value)}
+                      placeholder="e.g., Very formal, Conversational"
+                      className="bg-gray-700 border-gray-600 text-gray-200"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="humor" className="text-sm font-medium text-gray-300 mb-2 block">
+                      Humor Style
+                    </Label>
+                    <Input
+                      id="humor"
+                      value={styleData.humor}
+                      onChange={(e) => handleFieldChange('humor', e.target.value)}
+                      placeholder="e.g., Witty, No humor, Light jokes"
+                      className="bg-gray-700 border-gray-600 text-gray-200"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="empathy" className="text-sm font-medium text-gray-300 mb-2 block">
+                      Empathy Level
+                    </Label>
+                    <Input
+                      id="empathy"
+                      value={styleData.empathy}
+                      onChange={(e) => handleFieldChange('empathy', e.target.value)}
+                      placeholder="e.g., Very empathetic, Direct and factual"
+                      className="bg-gray-700 border-gray-600 text-gray-200"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="confidence" className="text-sm font-medium text-gray-300 mb-2 block">
+                      Confidence Level
+                    </Label>
+                    <Input
+                      id="confidence"
+                      value={styleData.confidence}
+                      onChange={(e) => handleFieldChange('confidence', e.target.value)}
+                      placeholder="e.g., Very confident, Humble and questioning"
+                      className="bg-gray-700 border-gray-600 text-gray-200"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="storytelling" className="text-sm font-medium text-gray-300 mb-2 block">
+                      Storytelling Approach
+                    </Label>
+                    <Input
+                      id="storytelling"
+                      value={styleData.storytelling}
+                      onChange={(e) => handleFieldChange('storytelling', e.target.value)}
+                      placeholder="e.g., Lots of personal stories, Data-driven"
+                      className="bg-gray-700 border-gray-600 text-gray-200"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="keyPhrases" className="text-sm font-medium text-gray-300 mb-2 block">
+                    Key Phrases & Expressions
+                  </Label>
+                  <Textarea
+                    id="keyPhrases"
+                    value={keyPhrasesText}
+                    onChange={(e) => handleKeyPhrasesChange(e.target.value)}
+                    placeholder="e.g., Let me tell you, Believe me, Listen folks (separate with commas)"
+                    className="bg-gray-700 border-gray-600 text-gray-200 min-h-[80px]"
+                    rows={3}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Separate phrases with commas
                   </p>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Style Analysis Results */}
-          {styleAnalysis && (
-            <div className="bg-purple-500/10 border border-purple-400/20 rounded-lg p-4">
-              <h4 className="font-medium text-purple-400 mb-2">
-                {styleAnalysis.communicationStyle ? 'AI-Powered Style Analysis' : 'Extracted Style Elements'}
-              </h4>
-              <div className="space-y-2 text-sm text-gray-300">
-                <div className="flex justify-between">
-                  <span>Tone:</span>
-                  <span className="text-purple-300">{styleAnalysis.tone}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Pace:</span>
-                  <span className="text-purple-300">{styleAnalysis.pace}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Vocabulary:</span>
-                  <span className="text-purple-300">{styleAnalysis.vocabulary}</span>
-                </div>
-                
-                {/* New Gemini fields */}
-                {styleAnalysis.communicationStyle && (
-                  <div className="flex justify-between">
-                    <span>Communication Style:</span>
-                    <span className="text-purple-300">{styleAnalysis.communicationStyle}</span>
-                  </div>
-                )}
-                
-                {styleAnalysis.audience && (
-                  <div className="flex justify-between">
-                    <span>Target Audience:</span>
-                    <span className="text-purple-300">{styleAnalysis.audience}</span>
-                  </div>
-                )}
-                
-                {styleAnalysis.personalityTraits && styleAnalysis.personalityTraits.length > 0 && (
-                  <div className="mt-2">
-                    <span className="block mb-1">Personality Traits:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {styleAnalysis.personalityTraits.map((trait, index) => (
-                        <span key={index} className="text-xs bg-blue-400/20 px-2 py-1 rounded text-blue-200">
-                          {trait}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <div className="mt-2">
-                  <span className="block mb-1">Key Phrases:</span>
-                  <div className="flex flex-wrap gap-1">
-                    {styleAnalysis.keyPhrases.map((phrase, index) => (
-                      <span key={index} className="text-xs bg-purple-400/20 px-2 py-1 rounded text-purple-200">
-                        "{phrase}"
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
+          {/* Style Preview */}
+          {styleData.sourceDescription && (
+            <div className="bg-gray-700/30 border border-gray-600/50 rounded-lg p-3">
+              <h4 className="text-sm font-medium text-gray-300 mb-2">Style Source</h4>
+              <p className="text-xs text-gray-400">{styleData.sourceDescription}</p>
             </div>
           )}
         </div>
 
-        <div className="flex gap-2 mt-6">
-          <Button
-            variant="outline"
+        <div className="flex justify-end gap-3 mt-6">
+          <Button 
+            variant="outline" 
             onClick={handleCancel}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 border-gray-600"
+            className="border-gray-600 text-gray-300 hover:bg-gray-700 bg-gray-700"
           >
             Cancel
           </Button>
-          <Button
+          <Button 
             onClick={handleConfirm}
-            disabled={
-              inputMode === 'search' ? !styleAnalysis : !manualStyleDescription.trim()
-            }
-            className="flex-1 bg-purple-500 hover:bg-purple-600"
+            disabled={!isFormValid()}
+            className="bg-yellow-600 hover:bg-yellow-700 text-white"
           >
-            Confirm
+            Confirm Style
           </Button>
         </div>
       </DialogContent>
