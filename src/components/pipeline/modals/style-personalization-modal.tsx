@@ -32,17 +32,18 @@ const getDefaultStyle = (): StyleData => ({
   isAIGenerated: false
 });
 
-export default function StylePersonalizationModal({ 
-  open, 
-  onOpenChange, 
+export default function StylePersonalizationModal({
+  open,
+  onOpenChange,
   customApiKey,
-  onDataUpdate 
+  onDataUpdate
 }: StylePersonalizationModalProps) {
   const [styleData, setStyleData] = useState<StyleData>(getDefaultStyle());
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [keyPhrasesText, setKeyPhrasesText] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Convert key phrases array to text for editing
   useEffect(() => {
@@ -64,11 +65,13 @@ export default function StylePersonalizationModal({
   // Generate style using AI
   const generateAIStyle = async () => {
     if (!aiPrompt.trim()) {
-      alert('Please describe the style you want to generate');
+      setErrorMessage('Please describe the style you want to generate');
       return;
     }
 
     setIsGenerating(true);
+    setErrorMessage(null);
+
     try {
       const response = await fetch('/api/analyze-style', {
         method: 'POST',
@@ -83,11 +86,35 @@ export default function StylePersonalizationModal({
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+        let errorMessage = 'Failed to generate style';
+
+        if (response.status === 400) {
+          const errorData = await response.json();
+          errorMessage = errorData.error || 'Invalid request. Please check your input and try again.';
+        } else if (response.status === 401) {
+          errorMessage = 'Authentication failed. Please check your API key in Settings.';
+        } else if (response.status === 403) {
+          errorMessage = 'Access denied. Your API key may not have permission to access this service.';
+        } else if (response.status === 429) {
+          errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+        } else if (response.status === 500) {
+          errorMessage = 'Server error. The AI service is temporarily unavailable. Please try again later.';
+        } else if (response.status >= 500) {
+          errorMessage = 'AI service is currently unavailable. Please try again in a few minutes.';
+        } else {
+          errorMessage = `Request failed with status ${response.status}. Please try again.`;
+        }
+
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
-      
+
+      // Check if the result contains the expected fields
+      if (!result || typeof result !== 'object') {
+        throw new Error('Invalid response from AI service. Please try again.');
+      }
+
       // Update style data with AI-generated values
       setStyleData({
         tone: result.tone || styleData.tone,
@@ -109,7 +136,21 @@ export default function StylePersonalizationModal({
       setAiPrompt(''); // Clear the prompt after successful generation
     } catch (error) {
       console.error('Error generating AI style:', error);
-      alert('Failed to generate style. Please try again.');
+
+      let userMessage = 'Failed to generate style. Please try again.';
+
+      if (error instanceof Error) {
+        userMessage = error.message;
+      } else if (typeof error === 'string') {
+        userMessage = error;
+      }
+
+      // Check for network errors
+      if (userMessage.includes('fetch')) {
+        userMessage = 'Network error. Please check your internet connection and try again.';
+      }
+
+      setErrorMessage(userMessage);
     } finally {
       setIsGenerating(false);
     }
@@ -181,13 +222,23 @@ export default function StylePersonalizationModal({
                   </>
                 )}
               </Button>
+
+              {/* Error Message Display */}
+              {errorMessage && (
+                <div className="mt-3 p-3 bg-red-500/10 border border-red-400/20 rounded-lg">
+                  <p className="text-red-300 text-sm">
+                    <span className="font-medium">Error: </span>
+                    {errorMessage}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Basic Style Dimensions */}
           <div className="space-y-4">
             <h3 className="text-yellow-300 font-medium">Basic Dimensions</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="tone" className="text-sm font-medium text-gray-300 mb-2 block">
@@ -261,7 +312,7 @@ export default function StylePersonalizationModal({
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-2 text-yellow-300 font-medium hover:text-yellow-200 transition-colors"
+              className="flex items-center gap-2 text-yellow-300 font-medium hover:text-yellow-200 transition-colors hover:cursor-pointer"
             >
               {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               Advanced Dimensions (Optional)
@@ -370,23 +421,23 @@ export default function StylePersonalizationModal({
           </div>
 
           {/* Style Preview */}
-          {styleData.sourceDescription && (
+          {/* {styleData.sourceDescription && (
             <div className="bg-gray-700/30 border border-gray-600/50 rounded-lg p-3">
               <h4 className="text-sm font-medium text-gray-300 mb-2">Style Source</h4>
               <p className="text-xs text-gray-400">{styleData.sourceDescription}</p>
             </div>
-          )}
+          )} */}
         </div>
 
         <div className="flex justify-end gap-3 mt-6">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={handleCancel}
             className="border-gray-600 text-gray-300 hover:bg-gray-700 bg-gray-700"
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleConfirm}
             disabled={!isFormValid()}
             className="bg-yellow-600 hover:bg-yellow-700 text-white"

@@ -76,6 +76,43 @@ function CanvasWorkspaceContent({
     currentNodes.current = nodes;
   }, [nodes]);
 
+  // Auto-update configured status when data changes
+  useEffect(() => {
+    const getConfiguredStatus = (nodeType: string) => {
+      switch (nodeType) {
+        case 'evidence-input':
+          return evidenceData !== null && evidenceData !== undefined && 
+                 evidenceData.fileContent && evidenceData.fileContent.trim().length > 0;
+        case 'style-personalization':
+          return styleData !== null && styleData !== undefined;
+        case 'personal-data':
+          return personalData !== null && personalData !== undefined;
+        case 'output-selector':
+          return outputSelectorData !== null && outputSelectorData !== undefined;
+        default:
+          return false;
+      }
+    };
+
+    // Update nodes with current configuration status
+    const updatedNodes = nodes.map(node => ({
+      ...node,
+      data: {
+        ...node.data,
+        configured: getConfiguredStatus(node.type)
+      }
+    }));
+
+    // Only update if something actually changed
+    const hasChanges = updatedNodes.some((node, index) => 
+      node.data.configured !== nodes[index].data.configured
+    );
+
+    if (hasChanges) {
+      onNodesChange(updatedNodes);
+    }
+  }, [evidenceData, styleData, personalData, outputSelectorData, nodes, onNodesChange]);
+
   // Process pending position changes after a delay
   useEffect(() => {
     if (pendingPositionChanges.length === 0) return;
@@ -583,12 +620,29 @@ function CanvasWorkspaceContent({
         y: event.clientY,
       });
 
+      // Check if there's already stored data for this component type
+      const getInitialConfiguredStatus = (nodeType: string) => {
+        switch (nodeType) {
+          case 'evidence-input':
+            return evidenceData !== null && evidenceData !== undefined && 
+                   evidenceData.fileContent && evidenceData.fileContent.trim().length > 0;
+          case 'style-personalization':
+            return styleData !== null && styleData !== undefined;
+          case 'personal-data':
+            return personalData !== null && personalData !== undefined;
+          case 'output-selector':
+            return outputSelectorData !== null && outputSelectorData !== undefined;
+          default:
+            return false;
+        }
+      };
+
       const newNode: PipelineNode = {
         id: `${type}-${Date.now()}`,
         type: type as any,
         position,
         data: {
-          configured: false,
+          configured: getInitialConfiguredStatus(type),
           title: getNodeTitle(type),
           description: getNodeDescription(type),
         },

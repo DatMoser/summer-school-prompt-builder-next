@@ -2,7 +2,11 @@ import { Handle, Position } from 'reactflow';
 import { Zap, Play } from 'lucide-react';
 import {
   CustomPromptSection,
-  BasePromptSection
+  BasePromptSection,
+  EvidencePromptSection,
+  StylePromptSection,
+  PersonalDataPromptSection,
+  OutputSelectorPromptSection
 } from './prompt-sections';
 import { useEffect } from 'react';
 
@@ -164,43 +168,38 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
             </BasePromptSection>
           ) : (
             <div key={`connected-sections-${connectionsKey}-${immediateKey}-${deletedKey}-${data._updateTimestamp || 0}`} className="space-y-3">
-              {/* Final MCP Prompt Display */}
-              <BasePromptSection>
-                <div className="text-purple-300 font-medium mb-1">🤖 Final MCP Prompt</div>
-                <div className="text-xs text-gray-300 mb-2">This is the exact prompt that will be sent to the MCP server:</div>
-                <div className="bg-gray-800/50 border border-gray-600/50 rounded p-3">
-                  <pre className="text-xs text-green-300 whitespace-pre-wrap font-mono">
-                    {generateRealTimePrompt()}
-                  </pre>
-                </div>
-              </BasePromptSection>
-
-              {/* Connected Components Summary */}
-              <BasePromptSection>
-                <div className="text-purple-300 font-medium mb-1">🔗 Connected Components</div>
-                {connectedComponentsWithIds.map(component => {
-                  const isHighlighted = data.selectedComponentType === component.type;
-                  const componentNames = {
-                    'evidence-input': '📄 Evidence Guidelines',
-                    'style-personalization': '🎨 Communication Style', 
-                    'personal-data': '🏥 Personal Health Data',
-                    'output-selector': '📺 Output Format'
-                  };
-                  
-                  return (
-                    <div 
-                      key={`${component.id}-${connectionsKey}`}
-                      className={`inline-block mr-2 mb-1 px-2 py-1 rounded text-xs ${
-                        isHighlighted 
-                          ? 'bg-yellow-500/30 text-yellow-100 border border-yellow-400/30' 
-                          : 'bg-purple-500/20 text-purple-200 border border-purple-400/20'
-                      }`}
-                    >
-                      {componentNames[component.type as keyof typeof componentNames]}
-                    </div>
-                  );
-                })}
-              </BasePromptSection>
+              {/* Individual Component Sections with Hover Highlighting */}
+              {connectedComponentsWithIds.some(c => c.type === 'evidence-input') && (
+                <EvidencePromptSection 
+                  highlighted={data.selectedComponentType === 'evidence-input'}
+                  componentId={connectedComponentsWithIds.find(c => c.type === 'evidence-input')?.id}
+                  evidenceData={data.evidenceData}
+                />
+              )}
+              
+              {connectedComponentsWithIds.some(c => c.type === 'style-personalization') && (
+                <StylePromptSection 
+                  highlighted={data.selectedComponentType === 'style-personalization'}
+                  componentId={connectedComponentsWithIds.find(c => c.type === 'style-personalization')?.id}
+                  styleData={data.styleData}
+                />
+              )}
+              
+              {connectedComponentsWithIds.some(c => c.type === 'personal-data') && (
+                <PersonalDataPromptSection 
+                  highlighted={data.selectedComponentType === 'personal-data'}
+                  componentId={connectedComponentsWithIds.find(c => c.type === 'personal-data')?.id}
+                  personalData={data.personalData}
+                />
+              )}
+              
+              {connectedComponentsWithIds.some(c => c.type === 'output-selector') && (
+                <OutputSelectorPromptSection 
+                  highlighted={data.selectedComponentType === 'output-selector'}
+                  componentId={connectedComponentsWithIds.find(c => c.type === 'output-selector')?.id}
+                  outputSelectorData={data.outputSelectorData}
+                />
+              )}
             </div>
           )}
         </div>

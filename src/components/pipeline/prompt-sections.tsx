@@ -6,6 +6,49 @@ export interface PromptSectionProps {
   componentId?: string;
 }
 
+export interface EvidencePromptSectionProps extends PromptSectionProps {
+  evidenceData?: {
+    summary?: string;
+    extractedGuidelines?: string[];
+    fileContent?: string;
+    fileName?: string;
+  };
+}
+
+export interface StylePromptSectionProps extends PromptSectionProps {
+  styleData?: {
+    tone?: string;
+    pace?: string;
+    vocabulary?: string;
+    energy?: string;
+    formality?: string;
+    humor?: string;
+    empathy?: string;
+    confidence?: string;
+    storytelling?: string;
+    keyPhrases?: string[];
+    targetAudience?: string;
+    contentStructure?: string;
+  };
+}
+
+export interface PersonalDataPromptSectionProps extends PromptSectionProps {
+  personalData?: {
+    averageDailySteps?: number;
+    averageHeartRate?: number;
+    age?: number;
+    biologicalSex?: string;
+    fitnessGoals?: string;
+    restingHeartRate?: number;
+  };
+}
+
+export interface OutputSelectorPromptSectionProps extends PromptSectionProps {
+  outputSelectorData?: {
+    selectedFormat?: string;
+  };
+}
+
 export function BasePromptSection({ children }: { children: React.ReactNode }) {
   return (
     <div className="bg-purple-500/10 border border-purple-400/20 rounded-lg p-3 mb-3">
@@ -16,7 +59,7 @@ export function BasePromptSection({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function EvidencePromptSection({ onRemove, highlighted, componentId }: PromptSectionProps) {
+export function EvidencePromptSection({ onRemove, highlighted, componentId, evidenceData }: EvidencePromptSectionProps) {
   return (
     <div 
       className={`bg-purple-500/10 border border-purple-400/20 rounded-lg p-3 mb-3 relative group transition-all duration-300 ${
@@ -35,20 +78,42 @@ export function EvidencePromptSection({ onRemove, highlighted, componentId }: Pr
       )}
       <div className="text-xs text-purple-100 font-mono whitespace-pre-wrap">
         <div className="text-purple-300 font-medium mb-1">📄 Evidence Guidelines</div>
-{`EVIDENCE GUIDELINES:
-{{evidenceData.summary}}
-
-KEY GUIDELINES:
-{{evidenceData.extractedGuidelines}}
-
-SOURCE CONTENT:
-{{evidenceData.fileContent}}`}
+        {evidenceData ? (
+          <div>
+            <div className="mb-2">
+              <span className="text-purple-200 font-medium">EVIDENCE GUIDELINES:</span>
+              <div className="mt-1 text-gray-300">{evidenceData.summary || 'No summary available'}</div>
+            </div>
+            
+            {evidenceData.extractedGuidelines && evidenceData.extractedGuidelines.length > 0 && (
+              <div className="mb-2">
+                <span className="text-purple-200 font-medium">KEY GUIDELINES:</span>
+                <div className="mt-1 text-gray-300">
+                  {evidenceData.extractedGuidelines.map((guideline, index) => (
+                    <div key={index}>• {guideline}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {evidenceData.fileContent && (
+              <div>
+                <span className="text-purple-200 font-medium">SOURCE CONTENT:</span>
+                <div className="mt-1 text-gray-300 ">
+                  {evidenceData.fileContent.substring(0, 150)}...
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-gray-400 italic">Configure evidence input to see content here</div>
+        )}
       </div>
     </div>
   );
 }
 
-export function StylePromptSection({ onRemove, highlighted, componentId }: PromptSectionProps) {
+export function StylePromptSection({ onRemove, highlighted, componentId, styleData }: StylePromptSectionProps) {
   return (
     <div 
       className={`bg-purple-500/10 border border-purple-400/20 rounded-lg p-3 mb-3 relative group transition-all duration-300 ${
@@ -67,31 +132,53 @@ export function StylePromptSection({ onRemove, highlighted, componentId }: Promp
       )}
       <div className="text-xs text-purple-100 font-mono whitespace-pre-wrap">
         <div className="text-purple-300 font-medium mb-1">🎨 Communication Style</div>
-{`COMMUNICATION STYLE:
-Tone: {{styleData.tone}}
-Pace: {{styleData.pace}}
-Vocabulary: {{styleData.vocabulary}}
-Energy: {{styleData.energy}}
-Formality: {{styleData.formality}}
-Humor: {{styleData.humor}}
-Empathy: {{styleData.empathy}}
-Confidence: {{styleData.confidence}}
-Storytelling: {{styleData.storytelling}}
-
-KEY PHRASES:
-{{styleData.keyPhrases}}
-
-TARGET AUDIENCE:
-{{styleData.targetAudience}}
-
-CONTENT STRUCTURE:
-{{styleData.contentStructure}}`}
+        {styleData ? (
+          <div>
+            <div className="mb-2">
+              <span className="text-purple-200 font-medium">COMMUNICATION STYLE:</span>
+              <div className="mt-1 text-gray-300 space-y-1">
+                <div>Tone: {styleData.tone || 'Not set'}</div>
+                <div>Pace: {styleData.pace || 'Not set'}</div>
+                <div>Vocabulary: {styleData.vocabulary || 'Not set'}</div>
+                {styleData.energy && <div>Energy: {styleData.energy}</div>}
+                {styleData.formality && <div>Formality: {styleData.formality}</div>}
+                {styleData.humor && <div>Humor: {styleData.humor}</div>}
+                {styleData.empathy && <div>Empathy: {styleData.empathy}</div>}
+                {styleData.confidence && <div>Confidence: {styleData.confidence}</div>}
+                {styleData.storytelling && <div>Storytelling: {styleData.storytelling}</div>}
+              </div>
+            </div>
+            
+            {styleData.keyPhrases && styleData.keyPhrases.length > 0 && (
+              <div className="mb-2">
+                <span className="text-purple-200 font-medium">KEY PHRASES:</span>
+                <div className="mt-1 text-gray-300">{styleData.keyPhrases.join(', ')}</div>
+              </div>
+            )}
+            
+            {styleData.targetAudience && (
+              <div className="mb-2">
+                <span className="text-purple-200 font-medium">TARGET AUDIENCE:</span>
+                <div className="mt-1 text-gray-300">{styleData.targetAudience}</div>
+              </div>
+            )}
+            
+            {styleData.contentStructure && (
+              <div>
+                <span className="text-purple-200 font-medium">CONTENT STRUCTURE:</span>
+                <div className="mt-1 text-gray-300">{styleData.contentStructure}</div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-gray-400 italic">Configure style personalization to see content here</div>
+        )}
       </div>
     </div>
   );
 }
 
-export function PersonalDataPromptSection({ onRemove, highlighted, componentId }: PromptSectionProps) {
+export function PersonalDataPromptSection({ onRemove, highlighted, componentId, personalData }: PersonalDataPromptSectionProps) {
   return (
     <div 
       className={`bg-purple-500/10 border border-purple-400/20 rounded-lg p-3 mb-3 relative group transition-all duration-300 ${
@@ -110,17 +197,32 @@ export function PersonalDataPromptSection({ onRemove, highlighted, componentId }
       )}
       <div className="text-xs text-purple-100 font-mono whitespace-pre-wrap">
         <div className="text-purple-300 font-medium mb-1">🏥 Personal Health Data</div>
-{`PERSONAL HEALTH METRICS:
-Average Daily Steps: {{personalData.averageDailySteps}}
-Average Heart Rate: {{personalData.averageHeartRate}} BPM
-
-Use this data to personalize health content and recommendations.`}
+        {personalData ? (
+          <div>
+            <div className="mb-2">
+              <span className="text-purple-200 font-medium">PERSONAL HEALTH METRICS:</span>
+              <div className="mt-1 text-gray-300 space-y-1">
+                <div>Average Daily Steps: {personalData.averageDailySteps?.toLocaleString() || 'Not set'}</div>
+                <div>Average Heart Rate: {personalData.averageHeartRate || 'Not set'} BPM</div>
+                {personalData.age && <div>Age: {personalData.age} years</div>}
+                {personalData.biologicalSex && <div>Biological Sex: {personalData.biologicalSex}</div>}
+                {personalData.fitnessGoals && <div>Fitness Goals: {personalData.fitnessGoals}</div>}
+                {personalData.restingHeartRate && <div>Resting Heart Rate: {personalData.restingHeartRate} BPM</div>}
+              </div>
+            </div>
+            <div className="text-gray-300 text-xs italic">
+              Use this data to personalize health content and recommendations.
+            </div>
+          </div>
+        ) : (
+          <div className="text-gray-400 italic">Configure personal data to see content here</div>
+        )}
       </div>
     </div>
   );
 }
 
-export function OutputSelectorPromptSection({ onRemove, highlighted, componentId }: PromptSectionProps) {
+export function OutputSelectorPromptSection({ onRemove, highlighted, componentId, outputSelectorData }: OutputSelectorPromptSectionProps) {
   return (
     <div 
       className={`bg-purple-500/10 border border-purple-400/20 rounded-lg p-3 mb-3 relative group transition-all duration-300 ${
@@ -139,9 +241,24 @@ export function OutputSelectorPromptSection({ onRemove, highlighted, componentId
       )}
       <div className="text-xs text-purple-100 font-mono whitespace-pre-wrap">
         <div className="text-purple-300 font-medium mb-1">📺 Output Format</div>
-{`OUTPUT FORMAT: {{outputData.selectedFormat}}
-
-Generate content optimized for {{outputData.selectedFormat}} format.`}
+        {outputSelectorData ? (
+          <div>
+            <div className="mb-2">
+              <span className="text-purple-200 font-medium">OUTPUT FORMAT:</span>
+              <div className="mt-1 text-gray-300">
+                {outputSelectorData.selectedFormat ? 
+                  outputSelectorData.selectedFormat.charAt(0).toUpperCase() + outputSelectorData.selectedFormat.slice(1) 
+                  : 'Not selected'
+                }
+              </div>
+            </div>
+            <div className="text-gray-300 text-xs italic">
+              Generate content optimized for {outputSelectorData.selectedFormat || 'selected'} format.
+            </div>
+          </div>
+        ) : (
+          <div className="text-gray-400 italic">Configure output selector to see content here</div>
+        )}
       </div>
     </div>
   );

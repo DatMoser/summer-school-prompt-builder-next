@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Settings } from "lucide-react";
+import { Settings, Images } from "lucide-react";
 import type { EvidenceData, OutputSelectorData, PersonalHealthData, PipelineConnection, PipelineNode, StyleData } from "../lib/pipeline-types";
 import CanvasWorkspace from "../components/pipeline/canvas-workspace";
 import ComponentSidebar from "../components/pipeline/component-sidebar";
@@ -10,6 +10,9 @@ import OutputSelectorModal from "../components/pipeline/modals/output-selector-m
 import PersonalDataModal from "../components/pipeline/modals/personal-data-modal";
 import SettingsModal from "../components/pipeline/modals/settings-modal";
 import StylePersonalizationModal from "../components/pipeline/modals/style-personalization-modal";
+import ProcessingModal, { GenerationResult } from "../components/pipeline/modals/processing-modal";
+import GalleryModal from "../components/gallery/gallery-modal";
+import TitleInputModal from "../components/pipeline/modals/title-input-modal";
 import { Button } from "../components/ui/button";
 
 export default function PipelineBuilder() {
@@ -76,6 +79,11 @@ export default function PipelineBuilder() {
   const [confirmationModalOpen, setConfirmationModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [loadingModalOpen, setLoadingModalOpen] = useState(false);
+  const [processingModalOpen, setProcessingModalOpen] = useState(false);
+  const [galleryModalOpen, setGalleryModalOpen] = useState(false);
+  const [titleInputModalOpen, setTitleInputModalOpen] = useState(false);
+  const [currentGenerationFormat, setCurrentGenerationFormat] = useState<'video' | 'audio'>('video');
+  const [currentGenerationTitle, setCurrentGenerationTitle] = useState<string>('');
 
   // Data states with lazy initialization from localStorage
   const [evidenceData, setEvidenceData] = useState<EvidenceData | null>(() => {
@@ -231,14 +239,30 @@ export default function PipelineBuilder() {
 
       // Verify what was actually saved
       const savedData = localStorage.getItem(STORAGE_KEYS.nodes);
-      const parsedSaved = JSON.parse(savedData!);
+      // const parsedSaved = JSON.parse(savedData!);
       // console.log('📍 Verified saved positions:', parsedSaved.map((n: any) => ({ id: n.id, position: n.position })));
       localStorage.setItem(STORAGE_KEYS.connections, JSON.stringify(connections));
 
-      if (evidenceData) localStorage.setItem(STORAGE_KEYS.evidenceData, JSON.stringify(evidenceData));
-      if (styleData) localStorage.setItem(STORAGE_KEYS.styleData, JSON.stringify(styleData));
-      if (personalData) localStorage.setItem(STORAGE_KEYS.personalData, JSON.stringify(personalData));
-      if (outputSelectorData) localStorage.setItem(STORAGE_KEYS.outputSelectorData, JSON.stringify(outputSelectorData));
+      if (evidenceData) {
+        localStorage.setItem(STORAGE_KEYS.evidenceData, JSON.stringify(evidenceData));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.evidenceData);
+      }
+      if (styleData) {
+        localStorage.setItem(STORAGE_KEYS.styleData, JSON.stringify(styleData));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.styleData);
+      }
+      if (personalData) {
+        localStorage.setItem(STORAGE_KEYS.personalData, JSON.stringify(personalData));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.personalData);
+      }
+      if (outputSelectorData) {
+        localStorage.setItem(STORAGE_KEYS.outputSelectorData, JSON.stringify(outputSelectorData));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.outputSelectorData);
+      }
 
       localStorage.setItem(STORAGE_KEYS.selectedService, selectedService);
       if (customApiKey) localStorage.setItem(STORAGE_KEYS.customApiKey, customApiKey);
@@ -631,109 +655,73 @@ export default function PipelineBuilder() {
 
   const handleConfirmGeneration = async () => {
     setConfirmationModalOpen(false);
-    setLoadingModalOpen(true);
-    setGenerationProgress(0);
-    setGenerationStatus("Initializing...");
-
+    
     const format = outputSelectorData?.selectedFormat || 'video';
+    setCurrentGenerationFormat(format === 'podcast' ? 'audio' : 'video');
+    setTitleInputModalOpen(true);
+  };
 
+  const handleTitleConfirm = (title: string) => {
+    setCurrentGenerationTitle(title);
+    setTitleInputModalOpen(false);
+    setProcessingModalOpen(true);
+  };
+
+  const handleTitleCancel = () => {
+    setTitleInputModalOpen(false);
+    setCurrentGenerationTitle('');
+  };
+
+  const handleProcessingComplete = (result: GenerationResult) => {
+    // Save to gallery history in localStorage
     try {
-      // Generate the final MCP-compatible prompt
-      const finalPrompt = generateMCPPrompt();
+      const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
+      const history = savedHistory ? JSON.parse(savedHistory) : [];
       
-      // Prepare the MCP-compatible data
-      const mcpData = {
-        mode: format === 'podcast' ? 'audio' : 'video',
-        prompt: finalPrompt
-      };
+      // Get connected components information
+      const promptNode = nodes.find(n => n.type === 'prompt');
+      const connectedComponents = promptNode ? connections
+        .filter(conn => conn.target === promptNode.id)
+        .map(conn => {
+          const sourceNode = nodes.find(n => n.id === conn.source);
+          return sourceNode ? sourceNode.type : 'unknown';
+        }) : [];
       
-      // Prepare the pipeline run data
-      const runData = {
-        pipelineId: null,
-        outputFormat: format,
-        mcpData: mcpData,
-        evidenceData: evidenceData,
-        styleData: styleData,
-        personalData: personalData,
-        status: 'pending'
-      };
-
-      setGenerationStatus("Starting content generation...");
-      setGenerationProgress(10);
-
-      // Create headers with custom API key if provided
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-
-      if (customApiKey) {
-        headers['x-gemini-api-key'] = customApiKey;
-      }
-
-      // Start generation process
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(runData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Generation failed: ${response.status}`);
-      }
-
-      const run = await response.json();
-      setGenerationProgress(30);
-      setGenerationStatus("Processing pipeline components...");
-
-      // Poll for completion
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusResponse = await fetch(`/api/generate/${run.id}`);
-          if (!statusResponse.ok) {
-            throw new Error('Failed to check generation status');
-          }
-
-          const updatedRun = await statusResponse.json();
-
-          if (updatedRun.status === 'processing') {
-            setGenerationProgress(60);
-            setGenerationStatus("Analyzing evidence and generating content...");
-          } else if (updatedRun.status === 'completed') {
-            clearInterval(pollInterval);
-            setGenerationProgress(100);
-            setGenerationStatus("Content generation completed!");
-
-            setTimeout(() => {
-              setLoadingModalOpen(false);
-              setGenerationProgress(0);
-              setGenerationStatus("Initializing...");
-
-              // Trigger download if available
-              if (updatedRun.downloadUrl) {
-                window.open(updatedRun.downloadUrl, '_blank');
-              }
-
-              alert(`Content generation completed! Your ${format} is ready for download.`);
-            }, 1000);
-          } else if (updatedRun.status === 'failed') {
-            clearInterval(pollInterval);
-            throw new Error(updatedRun.errorMessage || 'Generation failed');
-          }
-        } catch (error) {
-          clearInterval(pollInterval);
-          throw error;
+      const newItem = {
+        id: result.id,
+        title: currentGenerationTitle || `Generated ${result.format === 'video' ? 'Video' : 'Podcast'} Content`,
+        format: result.format,
+        downloadUrl: result.downloadUrl,
+        thumbnailUrl: result.thumbnailUrl,
+        duration: result.duration,
+        fileSize: result.fileSize,
+        createdAt: new Date().toISOString(),
+        status: 'completed',
+        metadata: {
+          evidenceUsed: evidenceData !== null,
+          styleUsed: styleData !== null,
+          personalDataUsed: personalData !== null,
+          connectedComponents: connectedComponents
         }
-      }, 2000);
-
+      };
+      
+      history.unshift(newItem); // Add to beginning
+      localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
+      
+      // Reset generation state
+      setCurrentGenerationTitle('');
+      
+      // Show success message
+      alert(`"${newItem.title}" generated successfully! Added to your gallery.`);
+      
     } catch (error) {
-      console.error('Generation error:', error);
-      setLoadingModalOpen(false);
-      setGenerationProgress(0);
-      setGenerationStatus("Initializing...");
-
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      alert(`Generation failed: ${errorMessage}`);
+      console.error('Failed to save to gallery:', error);
     }
+  };
+
+  const handleProcessingCancel = () => {
+    // Handle cancellation logic if needed
+    setProcessingModalOpen(false);
   };
 
   return (
@@ -746,6 +734,15 @@ export default function PipelineBuilder() {
             💾 Saved {lastSaveTime.toLocaleTimeString()}
           </div>
         )}
+
+        <Button
+          variant="outline"
+          onClick={() => setGalleryModalOpen(true)}
+          className="bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-300 p-2 sm:px-3"
+        >
+          <Images size={16} />
+          <span className="hidden sm:inline ml-2">Gallery</span>
+        </Button>
 
         <Button
           variant="outline"
@@ -791,12 +788,13 @@ export default function PipelineBuilder() {
         open={evidenceModalOpen}
         onOpenChange={setEvidenceModalOpen}
         customApiKey={customApiKey}
+        existingData={evidenceData}
         onDataUpdate={(data) => {
           setEvidenceData(data);
           if (selectedNodeForConfig) {
             setNodes(prev => prev.map(node =>
               node.id === selectedNodeForConfig
-                ? { ...node, data: { ...node.data, configured: true } }
+                ? { ...node, data: { ...node.data, configured: data !== null } }
                 : node
             ));
           }
@@ -812,7 +810,7 @@ export default function PipelineBuilder() {
           if (selectedNodeForConfig) {
             setNodes(prev => prev.map(node =>
               node.id === selectedNodeForConfig
-                ? { ...node, data: { ...node.data, configured: true } }
+                ? { ...node, data: { ...node.data, configured: data !== null } }
                 : node
             ));
           }
@@ -827,7 +825,7 @@ export default function PipelineBuilder() {
           if (selectedNodeForConfig) {
             setNodes(prev => prev.map(node =>
               node.id === selectedNodeForConfig
-                ? { ...node, data: { ...node.data, configured: true } }
+                ? { ...node, data: { ...node.data, configured: data !== null } }
                 : node
             ));
           }
@@ -837,12 +835,13 @@ export default function PipelineBuilder() {
       <OutputSelectorModal
         open={outputSelectorModalOpen}
         onOpenChange={setOutputSelectorModalOpen}
+        currentData={outputSelectorData}
         onDataUpdate={(data) => {
           setOutputSelectorData(data);
           if (selectedNodeForConfig) {
             setNodes(prev => prev.map(node =>
               node.id === selectedNodeForConfig
-                ? { ...node, data: { ...node.data, configured: true } }
+                ? { ...node, data: { ...node.data, configured: data !== null } }
                 : node
             ));
           }
@@ -890,6 +889,36 @@ export default function PipelineBuilder() {
           setCustomApiKey(null);
           setPromptText('You are a health content generation assistant with access to MCP tools.\n\nConnect components to access their data through the MCP protocol.');
           setLastSaveTime(null);
+        }}
+      />
+
+      <ProcessingModal
+        open={processingModalOpen}
+        onOpenChange={setProcessingModalOpen}
+        format={currentGenerationFormat}
+        evidenceData={evidenceData}
+        styleData={styleData}
+        personalData={personalData}
+        promptText={promptText}
+        customApiKey={customApiKey}
+        onComplete={handleProcessingComplete}
+        onCancel={handleProcessingCancel}
+      />
+
+      <TitleInputModal
+        open={titleInputModalOpen}
+        onOpenChange={setTitleInputModalOpen}
+        format={currentGenerationFormat}
+        onConfirm={handleTitleConfirm}
+        onCancel={handleTitleCancel}
+      />
+
+      <GalleryModal
+        open={galleryModalOpen}
+        onOpenChange={setGalleryModalOpen}
+        onCreateNew={() => {
+          setGalleryModalOpen(false);
+          // Focus on the pipeline builder to create new content
         }}
       />
 

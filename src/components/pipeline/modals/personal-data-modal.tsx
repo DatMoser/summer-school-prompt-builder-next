@@ -87,15 +87,15 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
             Personal Health Profile
           </DialogTitle>
           <DialogDescription className="text-gray-400">
-            Configure your health metrics for personalized content. These dimensions match Apple Health data.
+            Configure your health metrics for personalized content.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-6">
           {/* Basic Demographics & Core Metrics */}
           <div className="space-y-4">
             <h3 className="text-blue-300 font-medium">Basic Profile & Activity</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="age" className="text-sm font-medium text-gray-300 mb-2 block">
@@ -213,10 +213,10 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-2 text-blue-300 font-medium hover:text-blue-200 transition-colors"
+              className="flex items-center gap-2 text-blue-300 font-medium hover:text-blue-200 transition-colors hover:cursor-pointer"
             >
               {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              Advanced Health Metrics (Optional - Apple Health Compatible)
+              Advanced Health Metrics (Optional)
             </button>
 
             {showAdvanced && (
@@ -337,31 +337,24 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
                     rows={2}
                   />
                   <p className="text-xs text-gray-400 mt-1">
-                    Types of workouts you regularly do (from Apple Health workout data)
+                    Types of workouts you regularly do
                   </p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Data Source Info */}
-          <div className="bg-blue-500/10 border border-blue-400/20 rounded-lg p-3">
-            <h4 className="text-sm font-medium text-blue-300 mb-2">📱 Apple Health Integration</h4>
-            <p className="text-xs text-gray-400">
-              These metrics can be automatically synced from Apple Health, Apple Watch, and compatible fitness devices. Manual entry is also supported.
-            </p>
-          </div>
         </div>
 
         <div className="flex justify-end gap-3 mt-6">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={handleCancel}
             className="border-gray-600 text-gray-300 hover:bg-gray-700 bg-gray-700"
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleConfirm}
             disabled={!isFormValid()}
             className="bg-blue-600 hover:bg-blue-700 text-white"

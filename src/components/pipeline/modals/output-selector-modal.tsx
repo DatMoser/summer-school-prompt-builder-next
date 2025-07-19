@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Video, Podcast } from 'lucide-react';
@@ -8,10 +8,20 @@ interface OutputSelectorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDataUpdate: (data: OutputSelectorData) => void;
+  currentData?: OutputSelectorData | null;
 }
 
-export default function OutputSelectorModal({ open, onOpenChange, onDataUpdate }: OutputSelectorModalProps) {
+export default function OutputSelectorModal({ open, onOpenChange, onDataUpdate, currentData }: OutputSelectorModalProps) {
   const [selectedFormat, setSelectedFormat] = useState<'video' | 'podcast' | null>(null);
+
+  // Initialize with current data when modal opens
+  useEffect(() => {
+    if (open && currentData?.selectedFormat) {
+      setSelectedFormat(currentData.selectedFormat as 'video' | 'podcast');
+    } else if (open && !currentData) {
+      setSelectedFormat(null);
+    }
+  }, [open, currentData]);
 
   const handleConfirm = () => {
     if (selectedFormat) {
@@ -20,13 +30,18 @@ export default function OutputSelectorModal({ open, onOpenChange, onDataUpdate }
       };
       onDataUpdate(outputData);
       onOpenChange(false);
-      setSelectedFormat(null);
+      // Don't reset selection here - keep it for next time
     }
   };
 
   const handleCancel = () => {
     onOpenChange(false);
-    setSelectedFormat(null);
+    // Reset to current data on cancel
+    if (currentData?.selectedFormat) {
+      setSelectedFormat(currentData.selectedFormat as 'video' | 'podcast');
+    } else {
+      setSelectedFormat(null);
+    }
   };
 
   return (
