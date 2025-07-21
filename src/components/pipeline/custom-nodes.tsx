@@ -130,7 +130,7 @@ export function StylePersonalizationNode({ data, selected }: CustomNodeProps) {
       >
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Palette className="text-white text-lg" size={16} />
+            <User className="text-white text-lg" size={16} />
             <h3 className="font-medium text-white text-sm">{data.title}</h3>
           </div>
           <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all ${

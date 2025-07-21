@@ -56,6 +56,8 @@ export interface StyleData {
   keyPhrases: string[];
   targetAudience: string;
   contentStructure: string;
+  // Custom prompt field
+  customPrompt?: string; // User's additional style specifications
   // Metadata
   sourceDescription?: string; // Description of where this style came from (e.g., "Trump-like style", "Custom manual entry")
   isAIGenerated?: boolean; // Whether this was generated via AI or manually entered
@@ -101,6 +103,9 @@ export interface VisualStylingData {
   // Content-specific styling
   healthFocus: string; // "general", "fitness", "nutrition", "mental-health", "medical", "wellness"
   targetDemographic: string; // "young-adults", "middle-aged", "seniors", "professionals", "general"
+  
+  // Custom prompt field
+  customPrompt?: string; // User's additional visual styling specifications
   
   // Metadata
   sourceDescription?: string;

@@ -40,6 +40,12 @@ interface CanvasWorkspaceProps {
   promptText?: string;
   onPromptChange?: (prompt: string) => void;
   selectedComponentType?: string | null;
+  // State clearing callbacks for component deletion
+  onClearEvidenceData?: () => void;
+  onClearStyleData?: () => void;
+  onClearVisualStylingData?: () => void;
+  onClearPersonalData?: () => void;
+  onClearOutputSelectorData?: () => void;
 }
 
 function CanvasWorkspaceContent({
@@ -59,6 +65,11 @@ function CanvasWorkspaceContent({
   promptText,
   onPromptChange,
   selectedComponentType,
+  onClearEvidenceData,
+  onClearStyleData,
+  onClearVisualStylingData,
+  onClearPersonalData,
+  onClearOutputSelectorData,
 }: CanvasWorkspaceProps) {
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -170,6 +181,40 @@ function CanvasWorkspaceContent({
 
   // Handle node deletion
   const handleNodeDelete = useCallback((nodeId: string) => {
+    // Find the node to get its type before deletion
+    const nodeToDelete = nodes.find(node => node.id === nodeId);
+    
+    // Clear localStorage data and React state for the deleted component
+    if (nodeToDelete) {
+      const componentTypeToStorageKey: Record<string, string> = {
+        'evidence-input': 'pipeline-builder-evidence-data',
+        'style-personalization': 'pipeline-builder-style-data',
+        'visual-styling': 'pipeline-builder-visual-styling-data',
+        'personal-data': 'pipeline-builder-personal-data',
+        'output-selector': 'pipeline-builder-output-selector-data',
+      };
+      
+      const componentTypeToStateClearer: Record<string, (() => void) | undefined> = {
+        'evidence-input': onClearEvidenceData,
+        'style-personalization': onClearStyleData,
+        'visual-styling': onClearVisualStylingData,
+        'personal-data': onClearPersonalData,
+        'output-selector': onClearOutputSelectorData,
+      };
+      
+      // Clear localStorage
+      const storageKey = componentTypeToStorageKey[nodeToDelete.type];
+      if (storageKey && typeof window !== 'undefined') {
+        localStorage.removeItem(storageKey);
+      }
+      
+      // Clear React state
+      const stateClearer = componentTypeToStateClearer[nodeToDelete.type];
+      if (stateClearer) {
+        stateClearer();
+      }
+    }
+
     // Remove the node first
     const updatedNodes = nodes.filter(node => node.id !== nodeId);
 
@@ -676,7 +721,7 @@ function CanvasWorkspaceContent({
   // Handle keyboard shortcuts for deletion
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Prevent deletion if user is typing in an input field or modal
+      // Prevent any keyboard interference if user is typing in an input field or modal
       const target = event.target as Element;
       if (
         target.tagName === 'INPUT' ||
@@ -684,7 +729,11 @@ function CanvasWorkspaceContent({
         (target as HTMLElement).contentEditable === 'true' ||
         target.closest('[role="dialog"]') ||
         target.closest('.modal') ||
-        target.closest('[data-radix-modal]')
+        target.closest('[data-radix-modal]') ||
+        target.closest('[data-radix-dialog-content]') ||
+        target.closest('dialog') ||
+        target.closest('[class*="dialog"]') ||
+        target.closest('[class*="modal"]')
       ) {
         return;
       }

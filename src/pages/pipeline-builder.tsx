@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Settings, Images } from "lucide-react";
+import { Settings, Images, HelpCircle } from "lucide-react";
 import type { EvidenceData, OutputSelectorData, PersonalHealthData, PipelineConnection, PipelineNode, StyleData, VisualStylingData } from "../lib/pipeline-types";
 import CanvasWorkspace from "../components/pipeline/canvas-workspace";
 import ComponentSidebar from "../components/pipeline/component-sidebar";
@@ -14,6 +14,7 @@ import VisualStylingModal from "../components/pipeline/modals/visual-styling-mod
 import ProcessingModal, { GenerationResult } from "../components/pipeline/modals/processing-modal";
 import GalleryModal from "../components/gallery/gallery-modal";
 import TitleInputModal from "../components/pipeline/modals/title-input-modal";
+import HelpModal from "../components/pipeline/modals/help-modal";
 import { Button } from "../components/ui/button";
 
 export default function PipelineBuilder() {
@@ -40,7 +41,7 @@ export default function PipelineBuilder() {
         position: { x: 400, y: 300 },
         data: {
           configured: true,
-          title: 'AI Prompt',
+          title: 'AI Prompt Builder',
           description: 'Build and edit AI prompt',
           prompt: 'You are a health content generation assistant with access to MCP tools.\n\nConnect components to access their data through the MCP protocol.',
           connectedComponents: [],
@@ -84,6 +85,7 @@ export default function PipelineBuilder() {
   const [processingModalOpen, setProcessingModalOpen] = useState(false);
   const [galleryModalOpen, setGalleryModalOpen] = useState(false);
   const [titleInputModalOpen, setTitleInputModalOpen] = useState(false);
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [currentGenerationFormat, setCurrentGenerationFormat] = useState<'video' | 'audio'>('video');
   const [currentGenerationTitle, setCurrentGenerationTitle] = useState<string>('');
 
@@ -777,6 +779,15 @@ export default function PipelineBuilder() {
 
         <Button
           variant="outline"
+          onClick={() => setHelpModalOpen(true)}
+          className="bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-300 p-2 sm:px-3"
+        >
+          <HelpCircle size={16} />
+          <span className="hidden sm:inline ml-2">Help</span>
+        </Button>
+
+        <Button
+          variant="outline"
           onClick={() => setSettingsModalOpen(true)}
           className="bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-300 p-2 sm:px-3"
         >
@@ -814,6 +825,11 @@ export default function PipelineBuilder() {
         promptText={promptText}
         onPromptChange={handlePromptChange}
         selectedComponentType={hoveredComponentType || selectedComponentType}
+        onClearEvidenceData={() => setEvidenceData(null)}
+        onClearStyleData={() => setStyleData(null)}
+        onClearVisualStylingData={() => setVisualStylingData(null)}
+        onClearPersonalData={() => setPersonalData(null)}
+        onClearOutputSelectorData={() => setOutputSelectorData(null)}
       />
 
       <EvidenceInputModal
@@ -884,6 +900,8 @@ export default function PipelineBuilder() {
         open={outputSelectorModalOpen}
         onOpenChange={setOutputSelectorModalOpen}
         currentData={outputSelectorData}
+        hasGeminiKey={!!customApiKey}
+        onOpenSettings={() => setSettingsModalOpen(true)}
         onDataUpdate={(data) => {
           setOutputSelectorData(data);
           if (selectedNodeForConfig) {
@@ -969,6 +987,11 @@ export default function PipelineBuilder() {
           setGalleryModalOpen(false);
           // Focus on the pipeline builder to create new content
         }}
+      />
+
+      <HelpModal
+        open={helpModalOpen}
+        onOpenChange={setHelpModalOpen}
       />
 
       <LoadingModal

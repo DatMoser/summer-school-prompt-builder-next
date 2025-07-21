@@ -208,7 +208,7 @@ export default function EvidenceInputModal({ open, onOpenChange, onDataUpdate, e
       // Immediately mark as configured when text is entered
       const evidenceData: EvidenceData = {
         fileName: 'Manual Text Input',
-        fileContent: text.trim(),
+        fileContent: text,
         filePath: '',
         summary: '', // Will be generated during content creation
         extractedGuidelines: [] // Will be extracted during content creation

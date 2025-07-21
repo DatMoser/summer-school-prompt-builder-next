@@ -34,12 +34,39 @@ export interface StylePromptSectionProps extends PromptSectionProps {
 
 export interface PersonalDataPromptSectionProps extends PromptSectionProps {
   personalData?: {
-    averageDailySteps?: number;
-    averageHeartRate?: number;
+    // Basic Demographics & Goals
     age?: number;
     biologicalSex?: string;
+    heightCm?: number;
+    weightKg?: number;
     fitnessGoals?: string;
+    
+    // Basic Activity Metrics
+    averageDailySteps?: number;
+    averageHeartRate?: number;
+    sleepHoursPerNight?: number;
+    activeEnergyBurned?: number;
+    exerciseMinutesPerWeek?: number;
+    
+    // Advanced Health Metrics
     restingHeartRate?: number;
+    vo2Max?: number;
+    walkingHeartRateAverage?: number;
+    heartRateVariability?: number;
+    bloodPressureSystolic?: number;
+    bloodPressureDiastolic?: number;
+    bodyMassIndex?: number;
+    bloodGlucose?: number;
+    waterIntakeLiters?: number;
+    
+    // Activity Pattern Analysis
+    workoutTypes?: string[];
+    mostActiveTimeOfDay?: string;
+    weeklyActivityConsistency?: string;
+    
+    // Metadata
+    sourceDescription?: string;
+    lastSyncDate?: string;
   };
 }
 
@@ -103,11 +130,6 @@ export function EvidencePromptSection({ onRemove, highlighted, componentId, evid
         <div className="text-purple-300 font-medium mb-1">📄 Evidence Guidelines</div>
         {evidenceData ? (
           <div>
-            <div className="mb-2">
-              <span className="text-purple-200 font-medium">EVIDENCE GUIDELINES:</span>
-              <div className="mt-1 text-gray-300">{evidenceData.summary || 'No summary available'}</div>
-            </div>
-            
             {evidenceData.extractedGuidelines && evidenceData.extractedGuidelines.length > 0 && (
               <div className="mb-2">
                 <span className="text-purple-200 font-medium">KEY GUIDELINES:</span>
@@ -123,7 +145,7 @@ export function EvidencePromptSection({ onRemove, highlighted, componentId, evid
               <div>
                 <span className="text-purple-200 font-medium">SOURCE CONTENT:</span>
                 <div className="mt-1 text-gray-300 ">
-                  {evidenceData.fileContent.substring(0, 150)}...
+                  {evidenceData.fileContent.substring(0, 200)}...
                 </div>
               </div>
             )}
@@ -160,15 +182,15 @@ export function StylePromptSection({ onRemove, highlighted, componentId, styleDa
             <div className="mb-2">
               <span className="text-purple-200 font-medium">COMMUNICATION STYLE:</span>
               <div className="mt-1 text-gray-300 space-y-1">
-                <div>Tone: {styleData.tone || 'Not set'}</div>
-                <div>Pace: {styleData.pace || 'Not set'}</div>
-                <div>Vocabulary: {styleData.vocabulary || 'Not set'}</div>
-                {styleData.energy && <div>Energy: {styleData.energy}</div>}
-                {styleData.formality && <div>Formality: {styleData.formality}</div>}
-                {styleData.humor && <div>Humor: {styleData.humor}</div>}
-                {styleData.empathy && <div>Empathy: {styleData.empathy}</div>}
-                {styleData.confidence && <div>Confidence: {styleData.confidence}</div>}
-                {styleData.storytelling && <div>Storytelling: {styleData.storytelling}</div>}
+                {styleData.tone && styleData.tone.trim() && <div>Tone: {styleData.tone}</div>}
+                {styleData.pace && styleData.pace.trim() && <div>Pace: {styleData.pace}</div>}
+                {styleData.vocabulary && styleData.vocabulary.trim() && <div>Vocabulary: {styleData.vocabulary}</div>}
+                {styleData.energy && styleData.energy.trim() && <div>Energy: {styleData.energy}</div>}
+                {styleData.formality && styleData.formality.trim() && <div>Formality: {styleData.formality}</div>}
+                {styleData.humor && styleData.humor.trim() && <div>Humor: {styleData.humor}</div>}
+                {styleData.empathy && styleData.empathy.trim() && <div>Empathy: {styleData.empathy}</div>}
+                {styleData.confidence && styleData.confidence.trim() && <div>Confidence: {styleData.confidence}</div>}
+                {styleData.storytelling && styleData.storytelling.trim() && <div>Storytelling: {styleData.storytelling}</div>}
               </div>
             </div>
             
@@ -187,9 +209,16 @@ export function StylePromptSection({ onRemove, highlighted, componentId, styleDa
             )}
             
             {styleData.contentStructure && (
-              <div>
+              <div className="mb-2">
                 <span className="text-purple-200 font-medium">CONTENT STRUCTURE:</span>
                 <div className="mt-1 text-gray-300">{styleData.contentStructure}</div>
+              </div>
+            )}
+            
+            {styleData.customPrompt && (
+              <div>
+                <span className="text-purple-200 font-medium">ADDITIONAL INSTRUCTIONS:</span>
+                <div className="mt-1 text-gray-300">{styleData.customPrompt}</div>
               </div>
             )}
           </div>
@@ -225,17 +254,44 @@ export function PersonalDataPromptSection({ onRemove, highlighted, componentId, 
             <div className="mb-2">
               <span className="text-purple-200 font-medium">PERSONAL HEALTH METRICS:</span>
               <div className="mt-1 text-gray-300 space-y-1">
-                <div>Average Daily Steps: {personalData.averageDailySteps?.toLocaleString() || 'Not set'}</div>
-                <div>Average Heart Rate: {personalData.averageHeartRate || 'Not set'} BPM</div>
+                {/* Basic Demographics & Goals */}
                 {personalData.age && <div>Age: {personalData.age} years</div>}
                 {personalData.biologicalSex && <div>Biological Sex: {personalData.biologicalSex}</div>}
+                {personalData.heightCm && <div>Height: {personalData.heightCm} cm</div>}
+                {personalData.weightKg && <div>Weight: {personalData.weightKg} kg</div>}
                 {personalData.fitnessGoals && <div>Fitness Goals: {personalData.fitnessGoals}</div>}
+                
+                {/* Basic Activity Metrics */}
+                <div>Daily Steps: {personalData.averageDailySteps?.toLocaleString() || 'Not set'}</div>
+                {personalData.averageHeartRate && <div>Average Heart Rate: {personalData.averageHeartRate} BPM</div>}
+                {personalData.sleepHoursPerNight && <div>Sleep: {personalData.sleepHoursPerNight} hours/night</div>}
+                {personalData.activeEnergyBurned && <div>Active Calories: {personalData.activeEnergyBurned}/day</div>}
+                {personalData.exerciseMinutesPerWeek && <div>Exercise: {personalData.exerciseMinutesPerWeek} min/week</div>}
+                
+                {/* Advanced Health Metrics */}
                 {personalData.restingHeartRate && <div>Resting Heart Rate: {personalData.restingHeartRate} BPM</div>}
+                {personalData.vo2Max && <div>VO2 Max: {personalData.vo2Max} ml/kg/min</div>}
+                {personalData.walkingHeartRateAverage && <div>Walking Heart Rate: {personalData.walkingHeartRateAverage} BPM</div>}
+                {personalData.heartRateVariability && <div>HRV: {personalData.heartRateVariability}ms</div>}
+                {personalData.bloodPressureSystolic && personalData.bloodPressureDiastolic && 
+                  <div>Blood Pressure: {personalData.bloodPressureSystolic}/{personalData.bloodPressureDiastolic} mmHg</div>}
+                {personalData.bodyMassIndex && <div>BMI: {personalData.bodyMassIndex}</div>}
+                {personalData.bloodGlucose && <div>Blood Glucose: {personalData.bloodGlucose} mg/dL</div>}
+                {personalData.waterIntakeLiters && <div>Water Intake: {personalData.waterIntakeLiters}L/day</div>}
+                
+                {/* Activity Patterns */}
+                {personalData.workoutTypes && personalData.workoutTypes.length > 0 && 
+                  <div>Workout Types: {personalData.workoutTypes.join(', ')}</div>}
+                {personalData.mostActiveTimeOfDay && <div>Most Active: {personalData.mostActiveTimeOfDay}</div>}
+                {personalData.weeklyActivityConsistency && <div>Activity Consistency: {personalData.weeklyActivityConsistency}</div>}
               </div>
             </div>
-            <div className="text-gray-300 text-xs italic">
-              Use this data to personalize health content and recommendations.
-            </div>
+            {personalData.sourceDescription && (
+              <div className="text-gray-400 text-xs italic mt-2">
+                Source: {personalData.sourceDescription}
+                {personalData.lastSyncDate && ` (Last sync: ${personalData.lastSyncDate})`}
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-gray-400 italic">Configure personal data to see content here</div>
@@ -269,28 +325,24 @@ export function VisualStylingPromptSection({ onRemove, highlighted, componentId,
             <div className="mb-2">
               <span className="text-purple-200 font-medium">VISUAL STYLING:</span>
               <div className="mt-1 text-gray-300 space-y-1">
-                {visualStylingData.videoStyle && (
-                  <div>
-                    <div className="text-gray-400">Video Style:</div>
-                    {visualStylingData.videoStyle.colorScheme && <div>• Color Scheme: {visualStylingData.videoStyle.colorScheme}</div>}
-                    {visualStylingData.videoStyle.visualTheme && <div>• Design Theme: {visualStylingData.videoStyle.visualTheme}</div>}
-                    {visualStylingData.videoStyle.fontStyle && <div>• Font Style: {visualStylingData.videoStyle.fontStyle}</div>}
-                    {visualStylingData.videoStyle.layoutStyle && <div>• Layout Style: {visualStylingData.videoStyle.layoutStyle}</div>}
-                    {visualStylingData.videoStyle.backgroundStyle && <div>• Background Style: {visualStylingData.videoStyle.backgroundStyle}</div>}
-                    {visualStylingData.videoStyle.animationLevel && <div>• Animation Level: {visualStylingData.videoStyle.animationLevel}</div>}
-                  </div>
-                )}
-                {visualStylingData.podcastThumbnail && (
-                  <div>
-                    <div className="text-gray-400">Podcast Thumbnail:</div>
-                    {visualStylingData.podcastThumbnail.colorScheme && <div>• Color Scheme: {visualStylingData.podcastThumbnail.colorScheme}</div>}
-                    {visualStylingData.podcastThumbnail.designTheme && <div>• Design Theme: {visualStylingData.podcastThumbnail.designTheme}</div>}
-                    {visualStylingData.podcastThumbnail.fontStyle && <div>• Font Style: {visualStylingData.podcastThumbnail.fontStyle}</div>}
-                    {visualStylingData.podcastThumbnail.layoutType && <div>• Layout Type: {visualStylingData.podcastThumbnail.layoutType}</div>}
-                    {visualStylingData.podcastThumbnail.backgroundStyle && <div>• Background Style: {visualStylingData.podcastThumbnail.backgroundStyle}</div>}
-                    {visualStylingData.podcastThumbnail.iconStyle && <div>• Icon Style: {visualStylingData.podcastThumbnail.iconStyle}</div>}
-                  </div>
-                )}
+                {/* Unified display - show values from either videoStyle or podcastThumbnail */}
+                {(visualStylingData.videoStyle?.colorScheme || visualStylingData.podcastThumbnail?.colorScheme) && 
+                  <div>Color Scheme: {visualStylingData.videoStyle?.colorScheme || visualStylingData.podcastThumbnail?.colorScheme}</div>}
+                
+                {(visualStylingData.videoStyle?.visualTheme || visualStylingData.podcastThumbnail?.designTheme) && 
+                  <div>Design Theme: {visualStylingData.videoStyle?.visualTheme || visualStylingData.podcastThumbnail?.designTheme}</div>}
+                
+                {(visualStylingData.videoStyle?.fontStyle || visualStylingData.podcastThumbnail?.fontStyle) && 
+                  <div>Font Style: {visualStylingData.videoStyle?.fontStyle || visualStylingData.podcastThumbnail?.fontStyle}</div>}
+                
+                {(visualStylingData.videoStyle?.layoutStyle || visualStylingData.podcastThumbnail?.layoutType) && 
+                  <div>Layout Style: {visualStylingData.videoStyle?.layoutStyle || visualStylingData.podcastThumbnail?.layoutType}</div>}
+                
+                {(visualStylingData.videoStyle?.backgroundStyle || visualStylingData.podcastThumbnail?.backgroundStyle) && 
+                  <div>Background Style: {visualStylingData.videoStyle?.backgroundStyle || visualStylingData.podcastThumbnail?.backgroundStyle}</div>}
+                
+                {(visualStylingData.videoStyle?.animationLevel || visualStylingData.podcastThumbnail?.iconStyle) && 
+                  <div>Animation/Icon Style: {visualStylingData.videoStyle?.animationLevel || visualStylingData.podcastThumbnail?.iconStyle}</div>}
               </div>
             </div>
             
@@ -302,9 +354,16 @@ export function VisualStylingPromptSection({ onRemove, highlighted, componentId,
             )}
             
             {visualStylingData.targetDemographic && (
-              <div>
+              <div className="mb-2">
                 <span className="text-purple-200 font-medium">TARGET DEMOGRAPHIC:</span>
                 <div className="mt-1 text-gray-300">{visualStylingData.targetDemographic}</div>
+              </div>
+            )}
+            
+            {visualStylingData.customPrompt && (
+              <div>
+                <span className="text-purple-200 font-medium">ADDITIONAL INSTRUCTIONS:</span>
+                <div className="mt-1 text-gray-300">{visualStylingData.customPrompt}</div>
               </div>
             )}
           </div>

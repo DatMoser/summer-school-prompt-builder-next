@@ -47,7 +47,7 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
               draggable
               onDragStart={(e) => onDragStart(e, 'style-personalization')}
             >
-              <Palette size={20} className="text-white" />
+              <User size={20} className="text-white" />
             </div>
           )}
           {!isNodeUsed('visual-styling') && (
@@ -98,10 +98,10 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             ⚡
           </div>
-          Pipeline Builder
+          PromptRX
         </h1>
         <p className="text-sm text-gray-400 mt-1">
-          Drag components to build your media generation pipeline
+          Create personalized health content with AI-powered components
         </p>
       </div>
       
@@ -139,7 +139,7 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
           >
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Palette className="text-white text-lg" />
+                <User className="text-white text-lg" />
                 <h3 className="font-medium text-white">Conversational Style</h3>
               </div>
               <div className="text-yellow-200">⋮</div>

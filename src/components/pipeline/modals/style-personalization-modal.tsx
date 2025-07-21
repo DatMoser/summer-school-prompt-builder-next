@@ -14,11 +14,11 @@ interface StylePersonalizationModalProps {
   onDataUpdate: (data: StyleData) => void;
 }
 
-// Default style template
-const getDefaultStyle = (): StyleData => ({
-  tone: 'Professional and approachable',
-  pace: 'Moderate - not too fast, not too slow',
-  vocabulary: 'Clear and accessible language',
+// Empty style template requiring user configuration
+const getEmptyStyle = (): StyleData => ({
+  tone: '',
+  pace: '',
+  vocabulary: '',
   energy: '',
   formality: '',
   humor: '',
@@ -26,9 +26,10 @@ const getDefaultStyle = (): StyleData => ({
   confidence: '',
   storytelling: '',
   keyPhrases: [],
-  targetAudience: 'General health-conscious audience',
-  contentStructure: 'Clear introduction, main points, conclusion',
-  sourceDescription: 'Default template',
+  targetAudience: '',
+  contentStructure: '',
+  customPrompt: '',
+  sourceDescription: '',
   isAIGenerated: false
 });
 
@@ -38,7 +39,7 @@ export default function StylePersonalizationModal({
   customApiKey,
   onDataUpdate
 }: StylePersonalizationModalProps) {
-  const [styleData, setStyleData] = useState<StyleData>(getDefaultStyle());
+  const [styleData, setStyleData] = useState<StyleData>(getEmptyStyle());
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [keyPhrasesText, setKeyPhrasesText] = useState('');
@@ -168,7 +169,7 @@ export default function StylePersonalizationModal({
   };
 
   const isFormValid = () => {
-    return styleData.tone && styleData.pace && styleData.vocabulary && styleData.targetAudience;
+    return styleData.tone || styleData.pace || styleData.vocabulary || styleData.targetAudience || styleData.customPrompt;
   };
 
   return (
@@ -420,13 +421,23 @@ export default function StylePersonalizationModal({
             )}
           </div>
 
-          {/* Style Preview */}
-          {/* {styleData.sourceDescription && (
-            <div className="bg-gray-700/30 border border-gray-600/50 rounded-lg p-3">
-              <h4 className="text-sm font-medium text-gray-300 mb-2">Style Source</h4>
-              <p className="text-xs text-gray-400">{styleData.sourceDescription}</p>
-            </div>
-          )} */}
+          {/* Custom Prompt Field */}
+          <div className="mt-6">
+            <Label htmlFor="customPrompt" className="text-sm font-medium text-gray-300 mb-2 block">
+              Additional Style Instructions (Optional)
+            </Label>
+            <Textarea
+              id="customPrompt"
+              value={styleData.customPrompt || ''}
+              onChange={(e) => setStyleData(prev => ({ ...prev, customPrompt: e.target.value }))}
+              placeholder="e.g., Make it sound more conversational and relatable, use medical analogies, emphasize safety and trust..."
+              className="bg-gray-700 border-gray-600 text-gray-200 min-h-[80px]"
+              rows={3}
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Describe any additional style preferences to further customize the communication style
+            </p>
+          </div>
         </div>
 
         <div className="flex justify-end gap-3 mt-6">

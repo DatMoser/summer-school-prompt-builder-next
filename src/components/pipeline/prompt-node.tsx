@@ -95,78 +95,130 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
     
     // Add evidence data if connected
     if (connectedComponentsWithIds.some(c => c.type === 'evidence-input') && data.evidenceData) {
-      finalPrompt += `EVIDENCE GUIDELINES:\n${data.evidenceData.summary || 'Evidence summary will be loaded here'}\n\n`;
-      finalPrompt += `KEY GUIDELINES:\n${data.evidenceData.extractedGuidelines?.join('\n- ') || 'Evidence guidelines will be loaded here'}\n\n`;
+      if (data.evidenceData.extractedGuidelines && data.evidenceData.extractedGuidelines.length > 0) {
+        finalPrompt += `KEY GUIDELINES:\n${data.evidenceData.extractedGuidelines.join('\n- ')}\n\n`;
+      }
+      if (data.evidenceData.fileContent) {
+        finalPrompt += `SOURCE CONTENT:\n${data.evidenceData.fileContent.substring(0, 500)}...\n\n`;
+      }
     }
     
     // Add style data if connected
     if (connectedComponentsWithIds.some(c => c.type === 'style-personalization') && data.styleData) {
       finalPrompt += `COMMUNICATION STYLE:\n`;
-      finalPrompt += `Tone: ${data.styleData.tone || 'Style will be loaded here'}\n`;
-      finalPrompt += `Pace: ${data.styleData.pace || 'Style will be loaded here'}\n`;
-      finalPrompt += `Vocabulary: ${data.styleData.vocabulary || 'Style will be loaded here'}\n`;
       
-      // Include advanced fields if they have values
-      if (data.styleData.energy) {
+      // Only include fields that have actual values (not empty strings)
+      if (data.styleData.tone && data.styleData.tone.trim()) {
+        finalPrompt += `Tone: ${data.styleData.tone}\n`;
+      }
+      if (data.styleData.pace && data.styleData.pace.trim()) {
+        finalPrompt += `Pace: ${data.styleData.pace}\n`;
+      }
+      if (data.styleData.vocabulary && data.styleData.vocabulary.trim()) {
+        finalPrompt += `Vocabulary: ${data.styleData.vocabulary}\n`;
+      }
+      if (data.styleData.energy && data.styleData.energy.trim()) {
         finalPrompt += `Energy: ${data.styleData.energy}\n`;
       }
-      if (data.styleData.formality) {
+      if (data.styleData.formality && data.styleData.formality.trim()) {
         finalPrompt += `Formality: ${data.styleData.formality}\n`;
       }
-      if (data.styleData.humor) {
+      if (data.styleData.humor && data.styleData.humor.trim()) {
         finalPrompt += `Humor: ${data.styleData.humor}\n`;
       }
-      if (data.styleData.empathy) {
+      if (data.styleData.empathy && data.styleData.empathy.trim()) {
         finalPrompt += `Empathy: ${data.styleData.empathy}\n`;
       }
-      if (data.styleData.confidence) {
+      if (data.styleData.confidence && data.styleData.confidence.trim()) {
         finalPrompt += `Confidence: ${data.styleData.confidence}\n`;
       }
-      if (data.styleData.storytelling) {
+      if (data.styleData.storytelling && data.styleData.storytelling.trim()) {
         finalPrompt += `Storytelling: ${data.styleData.storytelling}\n`;
       }
-      
       if (data.styleData.keyPhrases && data.styleData.keyPhrases.length > 0) {
         finalPrompt += `Key Phrases: ${data.styleData.keyPhrases.join(', ')}\n`;
       }
-      finalPrompt += `Target Audience: ${data.styleData.targetAudience || 'Style will be loaded here'}\n`;
-      finalPrompt += `Content Structure: ${data.styleData.contentStructure || 'Style will be loaded here'}\n\n`;
+      if (data.styleData.targetAudience && data.styleData.targetAudience.trim()) {
+        finalPrompt += `Target Audience: ${data.styleData.targetAudience}\n`;
+      }
+      if (data.styleData.contentStructure && data.styleData.contentStructure.trim()) {
+        finalPrompt += `Content Structure: ${data.styleData.contentStructure}\n`;
+      }
+      
+      // Add custom prompt if provided
+      if (data.styleData.customPrompt && data.styleData.customPrompt.trim()) {
+        finalPrompt += `Additional Style Instructions: ${data.styleData.customPrompt}\n`;
+      }
+      finalPrompt += `\n`;
     }
     
     // Add visual styling if connected
     if (connectedComponentsWithIds.some(c => c.type === 'visual-styling') && data.visualStylingData) {
       finalPrompt += `VISUAL STYLING:\n`;
       
-      if (data.visualStylingData.videoStyle) {
-        finalPrompt += `Video Style:\n`;
-        if (data.visualStylingData.videoStyle.colorScheme) finalPrompt += `- Color Scheme: ${data.visualStylingData.videoStyle.colorScheme}\n`;
-        if (data.visualStylingData.videoStyle.visualTheme) finalPrompt += `- Design Theme: ${data.visualStylingData.videoStyle.visualTheme}\n`;
-        if (data.visualStylingData.videoStyle.fontStyle) finalPrompt += `- Font Style: ${data.visualStylingData.videoStyle.fontStyle}\n`;
-        if (data.visualStylingData.videoStyle.layoutStyle) finalPrompt += `- Layout Style: ${data.visualStylingData.videoStyle.layoutStyle}\n`;
-        if (data.visualStylingData.videoStyle.backgroundStyle) finalPrompt += `- Background Style: ${data.visualStylingData.videoStyle.backgroundStyle}\n`;
-        if (data.visualStylingData.videoStyle.animationLevel) finalPrompt += `- Animation Level: ${data.visualStylingData.videoStyle.animationLevel}\n`;
-      }
+      // Unified approach - use values from either videoStyle or podcastThumbnail
+      const colorScheme = data.visualStylingData.videoStyle?.colorScheme || data.visualStylingData.podcastThumbnail?.colorScheme;
+      const designTheme = data.visualStylingData.videoStyle?.visualTheme || data.visualStylingData.podcastThumbnail?.designTheme;
+      const fontStyle = data.visualStylingData.videoStyle?.fontStyle || data.visualStylingData.podcastThumbnail?.fontStyle;
+      const layoutStyle = data.visualStylingData.videoStyle?.layoutStyle || data.visualStylingData.podcastThumbnail?.layoutType;
+      const backgroundStyle = data.visualStylingData.videoStyle?.backgroundStyle || data.visualStylingData.podcastThumbnail?.backgroundStyle;
+      const animationIconStyle = data.visualStylingData.videoStyle?.animationLevel || data.visualStylingData.podcastThumbnail?.iconStyle;
       
-      if (data.visualStylingData.podcastThumbnail) {
-        finalPrompt += `Podcast Thumbnail:\n`;
-        if (data.visualStylingData.podcastThumbnail.colorScheme) finalPrompt += `- Color Scheme: ${data.visualStylingData.podcastThumbnail.colorScheme}\n`;
-        if (data.visualStylingData.podcastThumbnail.designTheme) finalPrompt += `- Design Theme: ${data.visualStylingData.podcastThumbnail.designTheme}\n`;
-        if (data.visualStylingData.podcastThumbnail.fontStyle) finalPrompt += `- Font Style: ${data.visualStylingData.podcastThumbnail.fontStyle}\n`;
-        if (data.visualStylingData.podcastThumbnail.layoutType) finalPrompt += `- Layout Type: ${data.visualStylingData.podcastThumbnail.layoutType}\n`;
-        if (data.visualStylingData.podcastThumbnail.backgroundStyle) finalPrompt += `- Background Style: ${data.visualStylingData.podcastThumbnail.backgroundStyle}\n`;
-        if (data.visualStylingData.podcastThumbnail.iconStyle) finalPrompt += `- Icon Style: ${data.visualStylingData.podcastThumbnail.iconStyle}\n`;
-      }
+      if (colorScheme) finalPrompt += `Color Scheme: ${colorScheme}\n`;
+      if (designTheme) finalPrompt += `Design Theme: ${designTheme}\n`;
+      if (fontStyle) finalPrompt += `Font Style: ${fontStyle}\n`;
+      if (layoutStyle) finalPrompt += `Layout Style: ${layoutStyle}\n`;
+      if (backgroundStyle) finalPrompt += `Background Style: ${backgroundStyle}\n`;
+      if (animationIconStyle) finalPrompt += `Animation/Icon Style: ${animationIconStyle}\n`;
       
       if (data.visualStylingData.healthFocus) finalPrompt += `Health Focus: ${data.visualStylingData.healthFocus}\n`;
       if (data.visualStylingData.targetDemographic) finalPrompt += `Target Demographic: ${data.visualStylingData.targetDemographic}\n`;
+      
+      // Add custom prompt if provided
+      if (data.visualStylingData.customPrompt && data.visualStylingData.customPrompt.trim()) {
+        finalPrompt += `Additional Visual Instructions: ${data.visualStylingData.customPrompt}\n`;
+      }
       finalPrompt += `\n`;
     }
     
     // Add personal data if connected
     if (connectedComponentsWithIds.some(c => c.type === 'personal-data') && data.personalData) {
       finalPrompt += `PERSONAL HEALTH METRICS:\n`;
-      finalPrompt += `Average Daily Steps: ${data.personalData.averageDailySteps || 'Not configured'}\n`;
-      finalPrompt += `Average Heart Rate: ${data.personalData.averageHeartRate || 'Not configured'} BPM\n\n`;
+      
+      // Basic Demographics & Goals
+      if (data.personalData.age) finalPrompt += `Age: ${data.personalData.age} years\n`;
+      if (data.personalData.biologicalSex) finalPrompt += `Biological Sex: ${data.personalData.biologicalSex}\n`;
+      if (data.personalData.heightCm) finalPrompt += `Height: ${data.personalData.heightCm} cm\n`;
+      if (data.personalData.weightKg) finalPrompt += `Weight: ${data.personalData.weightKg} kg\n`;
+      if (data.personalData.fitnessGoals) finalPrompt += `Fitness Goals: ${data.personalData.fitnessGoals}\n`;
+      
+      // Basic Activity Metrics
+      finalPrompt += `Daily Steps: ${data.personalData.averageDailySteps?.toLocaleString() || 'Not configured'}\n`;
+      if (data.personalData.averageHeartRate) finalPrompt += `Average Heart Rate: ${data.personalData.averageHeartRate} BPM\n`;
+      if (data.personalData.sleepHoursPerNight) finalPrompt += `Sleep: ${data.personalData.sleepHoursPerNight} hours/night\n`;
+      if (data.personalData.activeEnergyBurned) finalPrompt += `Active Calories: ${data.personalData.activeEnergyBurned}/day\n`;
+      if (data.personalData.exerciseMinutesPerWeek) finalPrompt += `Exercise: ${data.personalData.exerciseMinutesPerWeek} min/week\n`;
+      
+      // Advanced Health Metrics
+      if (data.personalData.restingHeartRate) finalPrompt += `Resting Heart Rate: ${data.personalData.restingHeartRate} BPM\n`;
+      if (data.personalData.vo2Max) finalPrompt += `VO2 Max: ${data.personalData.vo2Max} ml/kg/min\n`;
+      if (data.personalData.walkingHeartRateAverage) finalPrompt += `Walking Heart Rate: ${data.personalData.walkingHeartRateAverage} BPM\n`;
+      if (data.personalData.heartRateVariability) finalPrompt += `HRV: ${data.personalData.heartRateVariability}ms\n`;
+      if (data.personalData.bloodPressureSystolic && data.personalData.bloodPressureDiastolic) {
+        finalPrompt += `Blood Pressure: ${data.personalData.bloodPressureSystolic}/${data.personalData.bloodPressureDiastolic} mmHg\n`;
+      }
+      if (data.personalData.bodyMassIndex) finalPrompt += `BMI: ${data.personalData.bodyMassIndex}\n`;
+      if (data.personalData.bloodGlucose) finalPrompt += `Blood Glucose: ${data.personalData.bloodGlucose} mg/dL\n`;
+      if (data.personalData.waterIntakeLiters) finalPrompt += `Water Intake: ${data.personalData.waterIntakeLiters}L/day\n`;
+      
+      // Activity Patterns
+      if (data.personalData.workoutTypes && data.personalData.workoutTypes.length > 0) {
+        finalPrompt += `Workout Types: ${data.personalData.workoutTypes.join(', ')}\n`;
+      }
+      if (data.personalData.mostActiveTimeOfDay) finalPrompt += `Most Active: ${data.personalData.mostActiveTimeOfDay}\n`;
+      if (data.personalData.weeklyActivityConsistency) finalPrompt += `Activity Consistency: ${data.personalData.weeklyActivityConsistency}\n`;
+      
+      finalPrompt += `\n`;
     }
     
     // Add output format if connected
@@ -209,15 +261,17 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
 
         {/* Prompt Sections - Grow with content */}
         <div key={`prompt-sections-${connectionsKey}-${immediateKey}-${deletedKey}-${data._updateTimestamp || 0}`} className="mb-4">
-          {!hasAnyConnections ? (
-            <BasePromptSection>
-              <div className="text-purple-300 font-medium mb-1">👋 Getting Started</div>
-              You are a health content generation assistant that works with data providers.
+          {/* Always show the base prompt */}
+          <BasePromptSection>
+            <div className="text-purple-300 font-medium mb-1">👋 Getting Started</div>
+            You are a health content generation assistant that works with data providers.
 
-              Connect components to collect data that will be passed to an MCP server.
-            </BasePromptSection>
-          ) : (
-            <div key={`connected-sections-${connectionsKey}-${immediateKey}-${deletedKey}-${data._updateTimestamp || 0}`} className="space-y-3">
+            Connect components to collect data that will be passed to an MCP server.
+          </BasePromptSection>
+          
+          {/* Show connected components as additional sections */}
+          {hasAnyConnections && (
+            <div key={`connected-sections-${connectionsKey}-${immediateKey}-${deletedKey}-${data._updateTimestamp || 0}`} className="space-y-3 mt-3">
               {/* Individual Component Sections with Hover Highlighting */}
               {connectedComponentsWithIds.some(c => c.type === 'evidence-input') && (
                 <EvidencePromptSection 

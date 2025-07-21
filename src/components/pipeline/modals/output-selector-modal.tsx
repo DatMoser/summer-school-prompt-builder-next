@@ -9,17 +9,19 @@ interface OutputSelectorModalProps {
   onOpenChange: (open: boolean) => void;
   onDataUpdate: (data: OutputSelectorData) => void;
   currentData?: OutputSelectorData | null;
+  hasGeminiKey?: boolean;
+  onOpenSettings?: () => void;
 }
 
-export default function OutputSelectorModal({ open, onOpenChange, onDataUpdate, currentData }: OutputSelectorModalProps) {
+export default function OutputSelectorModal({ open, onOpenChange, onDataUpdate, currentData, hasGeminiKey, onOpenSettings }: OutputSelectorModalProps) {
   const [selectedFormat, setSelectedFormat] = useState<'video' | 'podcast' | null>(null);
 
-  // Initialize with current data when modal opens
+  // Initialize with current data when modal opens, default to podcast
   useEffect(() => {
     if (open && currentData?.selectedFormat) {
       setSelectedFormat(currentData.selectedFormat as 'video' | 'podcast');
     } else if (open && !currentData) {
-      setSelectedFormat(null);
+      setSelectedFormat('podcast'); // Default to podcast
     }
   }, [open, currentData]);
 
@@ -55,49 +57,7 @@ export default function OutputSelectorModal({ open, onOpenChange, onDataUpdate, 
         </DialogHeader>
 
         <div className="space-y-3 mb-4">
-          <div 
-            onClick={() => setSelectedFormat('video')}
-            className={`w-full p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer group ${
-              selectedFormat === 'video'
-                ? 'bg-gradient-to-br from-blue-500/20 to-blue-600/20 border-blue-500 shadow-lg shadow-blue-500/20'
-                : 'bg-gradient-to-br from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 border-gray-600 hover:border-gray-500'
-            }`}
-          >
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-full transition-all duration-200 ${
-                selectedFormat === 'video' 
-                  ? 'bg-blue-500/30 ring-2 ring-blue-400/50' 
-                  : 'bg-gray-600 group-hover:bg-gray-500'
-              }`}>
-                <Video 
-                  size={20} 
-                  className={`transition-colors duration-200 ${
-                    selectedFormat === 'video' ? 'text-blue-300' : 'text-blue-400 group-hover:text-blue-300'
-                  }`} 
-                />
-              </div>
-              <div className="flex-1">
-                <h4 className={`font-semibold text-base mb-1 transition-colors ${
-                  selectedFormat === 'video' ? 'text-blue-100' : 'text-white group-hover:text-blue-100'
-                }`}>
-                  Video Content
-                </h4>
-                <p className="text-sm text-gray-400 group-hover:text-gray-300">
-                  Personalized video with voiceover and visual elements
-                </p>
-              </div>
-              <div className={`w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
-                selectedFormat === 'video'
-                  ? 'border-blue-400 bg-blue-500'
-                  : 'border-gray-500 group-hover:border-gray-400'
-              }`}>
-                {selectedFormat === 'video' && (
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                )}
-              </div>
-            </div>
-          </div>
-          
+          {/* Podcast option - now first and default */}
           <div 
             onClick={() => setSelectedFormat('podcast')}
             className={`w-full p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer group ${
@@ -140,6 +100,89 @@ export default function OutputSelectorModal({ open, onOpenChange, onDataUpdate, 
               </div>
             </div>
           </div>
+          
+          {/* Video option - only show if Gemini key is available */}
+          {hasGeminiKey && (
+            <div 
+              onClick={() => setSelectedFormat('video')}
+              className={`w-full p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer group ${
+                selectedFormat === 'video'
+                  ? 'bg-gradient-to-br from-blue-500/20 to-blue-600/20 border-blue-500 shadow-lg shadow-blue-500/20'
+                  : 'bg-gradient-to-br from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 border-gray-600 hover:border-gray-500'
+              }`}
+            >
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-full transition-all duration-200 ${
+                  selectedFormat === 'video' 
+                    ? 'bg-blue-500/30 ring-2 ring-blue-400/50' 
+                    : 'bg-gray-600 group-hover:bg-gray-500'
+                }`}>
+                  <Video 
+                    size={20} 
+                    className={`transition-colors duration-200 ${
+                      selectedFormat === 'video' ? 'text-blue-300' : 'text-blue-400 group-hover:text-blue-300'
+                    }`} 
+                  />
+                </div>
+                <div className="flex-1">
+                  <h4 className={`font-semibold text-base mb-1 transition-colors ${
+                    selectedFormat === 'video' ? 'text-blue-100' : 'text-white group-hover:text-blue-100'
+                  }`}>
+                    Video Content
+                  </h4>
+                  <p className="text-sm text-gray-400 group-hover:text-gray-300">
+                    Personalized video content with sound
+                  </p>
+                </div>
+                <div className={`w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
+                  selectedFormat === 'video'
+                    ? 'border-blue-400 bg-blue-500'
+                    : 'border-gray-500 group-hover:border-gray-400'
+                }`}>
+                  {selectedFormat === 'video' && (
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Message when video is not available */}
+          {!hasGeminiKey && (
+            <div className="space-y-3">
+              <div className="p-4 rounded-xl border-2 border-gray-600 bg-gray-700/50 opacity-60">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-full bg-gray-600">
+                    <Video size={20} className="text-gray-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-base mb-1 text-gray-300">
+                      Video Content
+                    </h4>
+                    <p className="text-sm text-gray-400">
+                      Requires Gemini API key. Configure in Settings to enable video generation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Configure API Key Button */}
+              {onOpenSettings && (
+                <div className="text-center">
+                  <Button
+                    onClick={() => {
+                      onOpenSettings();
+                      onOpenChange(false);
+                    }}
+                    variant="outline"
+                    className="bg-blue-600/20 border-blue-500/50 text-blue-300 hover:bg-blue-600/30 hover:text-blue-200 text-sm px-4 py-2"
+                  >
+                    Configure Gemini API Key
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3 pt-2">

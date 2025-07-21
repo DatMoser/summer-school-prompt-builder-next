@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Paintbrush, Video, Headphones, Palette } from 'lucide-react';
 import { VisualStylingData } from '@/lib/pipeline-types';
 
@@ -13,26 +14,27 @@ interface VisualStylingModalProps {
   existingData?: VisualStylingData | null;
 }
 
-// Default visual styling template
-const getDefaultVisualStyling = (): VisualStylingData => ({
+// Empty visual styling template requiring user configuration
+const getEmptyVisualStyling = (): VisualStylingData => ({
   videoStyle: {
-    colorScheme: 'warm',
-    visualTheme: 'professional',
-    fontStyle: 'clean',
-    layoutStyle: 'dynamic',
-    backgroundStyle: 'gradient',
-    animationLevel: 'moderate'
+    colorScheme: '',
+    visualTheme: '',
+    fontStyle: '',
+    layoutStyle: '',
+    backgroundStyle: '',
+    animationLevel: ''
   },
   podcastThumbnail: {
-    colorScheme: 'warm',
-    designTheme: 'professional',
-    fontStyle: 'clean',
-    layoutType: 'balanced',
-    backgroundStyle: 'gradient',
-    iconStyle: 'medical'
+    colorScheme: '',
+    designTheme: '',
+    fontStyle: '',
+    layoutType: '',
+    backgroundStyle: '',
+    iconStyle: ''
   },
-  healthFocus: 'general',
-  targetDemographic: 'general',
+  healthFocus: '',
+  targetDemographic: '',
+  customPrompt: '',
   sourceDescription: 'Manual configuration',
   lastModified: new Date().toISOString()
 });
@@ -43,14 +45,14 @@ export default function VisualStylingModal({
   onDataUpdate,
   existingData
 }: VisualStylingModalProps) {
-  const [visualData, setVisualData] = useState<VisualStylingData>(getDefaultVisualStyling());
+  const [visualData, setVisualData] = useState<VisualStylingData>(getEmptyVisualStyling());
 
   // Restore existing data when modal opens
   useEffect(() => {
     if (open && existingData) {
       setVisualData(existingData);
     } else if (open) {
-      setVisualData(getDefaultVisualStyling());
+      setVisualData(getEmptyVisualStyling());
     }
   }, [open, existingData]);
 
@@ -111,7 +113,7 @@ export default function VisualStylingModal({
   const handleCancel = () => {
     onOpenChange(false);
     if (!existingData) {
-      setVisualData(getDefaultVisualStyling());
+      setVisualData(getEmptyVisualStyling());
     }
   };
 
@@ -139,10 +141,11 @@ export default function VisualStylingModal({
                 </Label>
                 <select
                   id="color-scheme"
-                  value={visualData.videoStyle?.colorScheme || 'warm'}
+                  value={visualData.videoStyle?.colorScheme || ''}
                   onChange={(e) => handleFieldChange('colorScheme', e.target.value)}
                   className="w-full bg-gray-700 border border-gray-600 text-gray-200 py-2 px-3 rounded-md"
                 >
+                  <option value="" disabled>Select color scheme</option>
                   <option value="warm">Warm (oranges, reds)</option>
                   <option value="cool">Cool (blues, greens)</option>
                   <option value="vibrant">Vibrant (bright colors)</option>
@@ -157,10 +160,11 @@ export default function VisualStylingModal({
                 </Label>
                 <select
                   id="visual-theme"
-                  value={visualData.videoStyle?.visualTheme || 'professional'}
+                  value={visualData.videoStyle?.visualTheme || ''}
                   onChange={(e) => handleFieldChange('visualTheme', e.target.value)}
                   className="w-full bg-gray-700 border border-gray-600 text-gray-200 py-2 px-3 rounded-md"
                 >
+                  <option value="" disabled>Select visual theme</option>
                   <option value="modern">Modern</option>
                   <option value="classic">Classic</option>
                   <option value="minimalist">Minimalist</option>
@@ -175,10 +179,11 @@ export default function VisualStylingModal({
                 </Label>
                 <select
                   id="font-style"
-                  value={visualData.videoStyle?.fontStyle || 'clean'}
+                  value={visualData.videoStyle?.fontStyle || ''}
                   onChange={(e) => handleFieldChange('fontStyle', e.target.value)}
                   className="w-full bg-gray-700 border border-gray-600 text-gray-200 py-2 px-3 rounded-md"
                 >
+                  <option value="" disabled>Select font style</option>
                   <option value="clean">Clean & Modern</option>
                   <option value="bold">Bold & Impactful</option>
                   <option value="elegant">Elegant & Refined</option>
@@ -192,10 +197,11 @@ export default function VisualStylingModal({
                 </Label>
                 <select
                   id="layout-style"
-                  value={visualData.videoStyle?.layoutStyle || 'dynamic'}
+                  value={visualData.videoStyle?.layoutStyle || ''}
                   onChange={(e) => handleFieldChange('layoutStyle', e.target.value)}
                   className="w-full bg-gray-700 border border-gray-600 text-gray-200 py-2 px-3 rounded-md"
                 >
+                  <option value="" disabled>Select layout style</option>
                   <option value="dynamic">Dynamic & Engaging</option>
                   <option value="static">Static & Stable</option>
                   <option value="split-screen">Split Screen (Video) / Balanced (Thumbnail)</option>
@@ -209,10 +215,11 @@ export default function VisualStylingModal({
                 </Label>
                 <select
                   id="background-style"
-                  value={visualData.videoStyle?.backgroundStyle || 'gradient'}
+                  value={visualData.videoStyle?.backgroundStyle || ''}
                   onChange={(e) => handleFieldChange('backgroundStyle', e.target.value)}
                   className="w-full bg-gray-700 border border-gray-600 text-gray-200 py-2 px-3 rounded-md"
                 >
+                  <option value="" disabled>Select background style</option>
                   <option value="gradient">Gradient</option>
                   <option value="solid">Solid Color</option>
                   <option value="subtle-pattern">Subtle Pattern (Video) / Geometric (Thumbnail)</option>
@@ -226,10 +233,11 @@ export default function VisualStylingModal({
                 </Label>
                 <select
                   id="animation-level"
-                  value={visualData.videoStyle?.animationLevel || 'moderate'}
+                  value={visualData.videoStyle?.animationLevel || ''}
                   onChange={(e) => handleFieldChange('animationLevel', e.target.value)}
                   className="w-full bg-gray-700 border border-gray-600 text-gray-200 py-2 px-3 rounded-md"
                 >
+                  <option value="" disabled>Select animation/icon style</option>
                   <option value="minimal">Minimal Animation / Medical Icons</option>
                   <option value="moderate">Moderate Animation / Fitness Icons</option>
                   <option value="dynamic">Dynamic Animation / Lifestyle Icons</option>
@@ -254,6 +262,7 @@ export default function VisualStylingModal({
                   onChange={(e) => handleGeneralFieldChange('healthFocus', e.target.value)}
                   className="w-full bg-gray-700 border border-gray-600 text-gray-200 py-2 px-3 rounded-md"
                 >
+                  <option value="" disabled>Select health focus</option>
                   <option value="general">General Health</option>
                   <option value="fitness">Fitness & Exercise</option>
                   <option value="nutrition">Nutrition & Diet</option>
@@ -273,6 +282,7 @@ export default function VisualStylingModal({
                   onChange={(e) => handleGeneralFieldChange('targetDemographic', e.target.value)}
                   className="w-full bg-gray-700 border border-gray-600 text-gray-200 py-2 px-3 rounded-md"
                 >
+                  <option value="" disabled>Select target demographic</option>
                   <option value="general">General Audience</option>
                   <option value="young-adults">Young Adults (18-30)</option>
                   <option value="middle-aged">Middle-aged (30-55)</option>
@@ -281,6 +291,24 @@ export default function VisualStylingModal({
                 </select>
               </div>
             </div>
+          </div>
+          
+          {/* Custom Prompt Field */}
+          <div className="border-t border-gray-700 pt-4">
+            <Label htmlFor="customPrompt" className="text-sm font-medium text-pink-300 mb-2 block">
+              Additional Visual Instructions (Optional)
+            </Label>
+            <Textarea
+              id="customPrompt"
+              value={visualData.customPrompt || ''}
+              onChange={(e) => setVisualData(prev => ({ ...prev, customPrompt: e.target.value }))}
+              placeholder="e.g., Use more vibrant colors for energy, include medical symbols subtly, make it feel trustworthy and professional..."
+              className="bg-gray-700 border-gray-600 text-gray-200 min-h-[80px]"
+              rows={3}
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Describe any additional visual preferences to further customize the styling
+            </p>
           </div>
         </div>
 

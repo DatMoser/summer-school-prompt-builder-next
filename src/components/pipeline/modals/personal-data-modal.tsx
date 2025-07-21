@@ -13,14 +13,14 @@ interface PersonalDataModalProps {
   onDataUpdate: (data: PersonalHealthData) => void;
 }
 
-// Default health data template
-const getDefaultHealthData = (): PersonalHealthData => ({
-  age: 30,
-  biologicalSex: 'Other',
+// Empty health data template requiring user configuration
+const getEmptyHealthData = (): PersonalHealthData => ({
+  age: 0,
+  biologicalSex: '',
   heightCm: undefined,
   weightKg: undefined,
-  fitnessGoals: 'General Health & Wellness',
-  averageDailySteps: 8000,
+  fitnessGoals: '',
+  averageDailySteps: 0,
   averageHeartRate: undefined,
   sleepHoursPerNight: undefined,
   activeEnergyBurned: undefined,
@@ -42,7 +42,7 @@ const getDefaultHealthData = (): PersonalHealthData => ({
 });
 
 export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: PersonalDataModalProps) {
-  const [healthData, setHealthData] = useState<PersonalHealthData>(getDefaultHealthData());
+  const [healthData, setHealthData] = useState<PersonalHealthData>(getEmptyHealthData());
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [workoutTypesText, setWorkoutTypesText] = useState('');
 
@@ -70,12 +70,12 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
 
   const handleCancel = () => {
     onOpenChange(false);
-    setHealthData(getDefaultHealthData());
+    setHealthData(getEmptyHealthData());
     setWorkoutTypesText('');
   };
 
   const isFormValid = () => {
-    return healthData.age > 0 && healthData.biologicalSex && healthData.fitnessGoals && healthData.averageDailySteps > 0;
+    return healthData.age > 0 || healthData.biologicalSex || healthData.fitnessGoals || healthData.averageDailySteps > 0;
   };
 
   return (
@@ -128,6 +128,7 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
                     onChange={(e) => handleFieldChange('biologicalSex', e.target.value)}
                     className="w-full bg-gray-700 border border-gray-600 text-gray-200 pl-10 py-2 px-3 rounded-md"
                   >
+                    <option value="" disabled>Select biological sex</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
