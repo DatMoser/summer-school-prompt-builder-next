@@ -25,6 +25,7 @@ interface PromptNodeData {
   customText?: string;
   onCustomTextChange?: (text: string) => void;
   selectedComponentType?: string;
+  backendHealthStatus?: 'checking' | 'healthy' | 'unhealthy' | 'unknown';
   _immediateUpdate?: boolean;
   _deletedNodeId?: string;
   _updateTimestamp?: number;
@@ -331,8 +332,22 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
           <div className="flex justify-center">
             <button
               onClick={data.onGenerate}
-              disabled={connectedComponentsWithIds.length === 0}
+              disabled={
+                connectedComponentsWithIds.length === 0 || 
+                data.backendHealthStatus === 'unhealthy' || 
+                data.backendHealthStatus === 'unknown' ||
+                data.backendHealthStatus === 'checking'
+              }
               className="bg-purple-500 hover:bg-purple-400 disabled:bg-purple-600/50 disabled:cursor-not-allowed cursor-pointer text-white px-6 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-colors"
+              title={
+                data.backendHealthStatus === 'unhealthy' 
+                  ? 'Service unavailable - The backend service is offline. Click Settings (top-right) to check your configuration and ensure the backend is running.'
+                  : data.backendHealthStatus === 'unknown' || data.backendHealthStatus === 'checking'
+                  ? 'Service status unknown - Checking backend service health. Please wait or click Settings to verify configuration.'
+                  : connectedComponentsWithIds.length === 0
+                  ? 'Connect components to generate content'
+                  : 'Generate personalized content'
+              }
             >
               <Play size={16} />
               Generate Content

@@ -1,10 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react';
+
+interface BackendCredentials {
+  geminiApiKey?: string;
+  googleCloudCredentials?: any;
+  googleCloudProject?: string;
+  vertexAiRegion?: string;
+  gcsBucket?: string;
+  elevenlabsApiKey?: string;
+}
 
 interface SettingsModalProps {
   open: boolean;
@@ -13,6 +24,8 @@ interface SettingsModalProps {
   onServiceChange: (service: string) => void;
   onApiKeyUpdate?: (apiKey: string | null) => void;
   currentApiKey?: string | null;
+  onBackendCredentialsUpdate?: (credentials: BackendCredentials) => void;
+  currentBackendCredentials?: BackendCredentials;
   onResetStorage?: () => void;
 }
 
@@ -23,17 +36,55 @@ export default function SettingsModal({
   onServiceChange,
   onApiKeyUpdate,
   currentApiKey,
+  onBackendCredentialsUpdate,
+  currentBackendCredentials,
   onResetStorage
 }: SettingsModalProps) {
   const [selectedService, setSelectedService] = useState(currentService);
   const [useCustomApiKey, setUseCustomApiKey] = useState(!!currentApiKey);
   const [customApiKey, setCustomApiKey] = useState(currentApiKey || '');
+  
+  // Backend credentials state
+  const [backendCredentials, setBackendCredentials] = useState<BackendCredentials>({
+    geminiApiKey: currentBackendCredentials?.geminiApiKey || '',
+    googleCloudProject: currentBackendCredentials?.googleCloudProject || '',
+    vertexAiRegion: currentBackendCredentials?.vertexAiRegion || 'us-central1',
+    gcsBucket: currentBackendCredentials?.gcsBucket || '',
+    elevenlabsApiKey: currentBackendCredentials?.elevenlabsApiKey || ''
+  });
+  const [gcCredentialsJson, setGcCredentialsJson] = useState('');
+  
+  // Health check state
+  const [healthStatus, setHealthStatus] = useState<'checking' | 'healthy' | 'unhealthy' | 'unknown'>('unknown');
+  const [lastHealthCheck, setLastHealthCheck] = useState<Date | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
 
   const handleSave = () => {
     onServiceChange("gemini"); // Always use Gemini as the only service
     if (onApiKeyUpdate) {
       onApiKeyUpdate(useCustomApiKey && customApiKey.trim() ? customApiKey.trim() : null);
     }
+    
+    // Save backend credentials
+    if (onBackendCredentialsUpdate) {
+      const credentials: BackendCredentials = {
+        ...backendCredentials,
+        geminiApiKey: customApiKey.trim() || undefined
+      };
+      
+      // Parse Google Cloud credentials JSON if provided
+      if (gcCredentialsJson.trim()) {
+        try {
+          credentials.googleCloudCredentials = JSON.parse(gcCredentialsJson.trim());
+        } catch (error) {
+          alert('Invalid Google Cloud credentials JSON format');
+          return;
+        }
+      }
+      
+      onBackendCredentialsUpdate(credentials);
+    }
+    
     onOpenChange(false);
   };
 
@@ -41,8 +92,92 @@ export default function SettingsModal({
     setSelectedService(currentService);
     setUseCustomApiKey(!!currentApiKey);
     setCustomApiKey(currentApiKey || '');
+    setBackendCredentials({
+      geminiApiKey: currentBackendCredentials?.geminiApiKey || '',
+      googleCloudProject: currentBackendCredentials?.googleCloudProject || '',
+      vertexAiRegion: currentBackendCredentials?.vertexAiRegion || 'us-central1',
+      gcsBucket: currentBackendCredentials?.gcsBucket || '',
+      elevenlabsApiKey: currentBackendCredentials?.elevenlabsApiKey || ''
+    });
+    setGcCredentialsJson('');
     onOpenChange(false);
   };
+  
+  // Health check function
+  const checkBackendHealth = async () => {
+    setIsCheckingHealth(true);
+    setHealthStatus('checking');
+    
+    try {
+      // Use the Next.js API proxy to avoid CORS issues
+      const response = await fetch('/api/health', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        // Add timeout to prevent hanging
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+      
+      if (response.ok) {
+        setHealthStatus('healthy');
+      } else {
+        setHealthStatus('unhealthy');
+      }
+    } catch (error) {
+      console.error('Backend health check failed:', error);
+      setHealthStatus('unhealthy');
+    } finally {
+      setIsCheckingHealth(false);
+      setLastHealthCheck(new Date());
+    }
+  };
+  
+  // Check health when modal opens
+  useEffect(() => {
+    if (open) {
+      checkBackendHealth();
+    }
+  }, [open]);
+  
+  // Auto-refresh health check every 30 seconds when modal is open
+  useEffect(() => {
+    if (!open) return;
+    
+    const interval = setInterval(checkBackendHealth, 30000);
+    return () => clearInterval(interval);
+  }, [open]);
+  
+  const getHealthStatusDisplay = () => {
+    switch (healthStatus) {
+      case 'checking':
+        return {
+          icon: <Loader2 className="w-4 h-4 animate-spin" />,
+          text: 'Checking...',
+          className: 'bg-blue-500/20 text-blue-400 border-blue-400/30'
+        };
+      case 'healthy':
+        return {
+          icon: <CheckCircle className="w-4 h-4" />,
+          text: 'Service Online',
+          className: 'bg-emerald-500/20 text-emerald-400 border-emerald-400/30'
+        };
+      case 'unhealthy':
+        return {
+          icon: <XCircle className="w-4 h-4" />,
+          text: 'Service Offline',
+          className: 'bg-red-500/20 text-red-400 border-red-400/30'
+        };
+      default:
+        return {
+          icon: <XCircle className="w-4 h-4" />,
+          text: 'Unknown',
+          className: 'bg-gray-500/20 text-gray-400 border-gray-400/30'
+        };
+    }
+  };
+  
+  const healthDisplay = getHealthStatusDisplay();
 
   const handleResetStorage = () => {
     if (confirm('Are you sure you want to reset all pipeline data? This will clear all your configurations, connections, and saved data. This action cannot be undone.')) {
@@ -55,20 +190,57 @@ export default function SettingsModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-gray-800 border-gray-600 text-white max-w-md w-[90vw] sm:w-full max-h-[80vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">Gemini AI Settings</DialogTitle>
+          <DialogTitle className="text-lg font-semibold">Backend Service Settings</DialogTitle>
           <DialogDescription className="text-gray-400">
-            Configure your Google Gemini AI settings. The system automatically selects the best service for video or podcast generation.
+            Configure your backend credentials and monitor service health.
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
-          <div className="bg-gray-700 p-3 rounded-md">
-            <p className="text-sm text-gray-300 font-medium mb-1">
-              AI Service: Google Gemini
-            </p>
-            <p className="text-xs text-gray-400">
-              Automatically uses Gemini 2.0 Flash for content analysis and Veo for video generation based on your output selection.
-            </p>
+          {/* Backend Health Status */}
+          <div className="bg-gray-700 p-4 rounded-md">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-sm text-gray-300 font-medium mb-1">
+                  Backend Service Status
+                </p>
+                <p className="text-xs text-gray-400">
+                  FastAPI Summer School Service for video and audio generation
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={checkBackendHealth}
+                disabled={isCheckingHealth}
+                className="bg-gray-600 border-gray-500 text-gray-300 hover:bg-gray-500 text-xs px-2 py-1"
+              >
+                <RefreshCw className={`w-3 h-3 mr-1 ${isCheckingHealth ? 'animate-spin' : ''}`} />
+                Check
+              </Button>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <Badge 
+                variant="outline" 
+                className={`${healthDisplay.className} text-xs flex items-center gap-1`}
+              >
+                {healthDisplay.icon}
+                {healthDisplay.text}
+              </Badge>
+              
+              {lastHealthCheck && (
+                <span className="text-xs text-gray-500">
+                  Last checked: {lastHealthCheck.toLocaleTimeString()}
+                </span>
+              )}
+            </div>
+            
+            {healthStatus === 'unhealthy' && (
+              <div className="mt-2 p-2 bg-red-500/10 border border-red-400/20 rounded text-xs text-red-400">
+                ⚠️ Backend service is not accessible. Make sure your FastAPI server is running on the configured URL.
+              </div>
+            )}
           </div>
 
           {/* Gemini API Key Configuration */}
@@ -116,6 +288,89 @@ export default function SettingsModal({
             </div>
           </div>
 
+          {/* Backend Configuration */}
+          <div className="border-t border-gray-600 pt-4">
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-gray-300">
+                Backend Service Credentials
+              </Label>
+              <p className="text-xs text-gray-400">
+                Required for video and audio generation via your FastAPI backend
+              </p>
+              
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <Label htmlFor="gcp-project" className="text-sm text-gray-400">
+                    Google Cloud Project ID
+                  </Label>
+                  <Input
+                    id="gcp-project"
+                    placeholder="your-project-id"
+                    value={backendCredentials.googleCloudProject}
+                    onChange={(e) => setBackendCredentials(prev => ({ ...prev, googleCloudProject: e.target.value }))}
+                    className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="gcs-bucket" className="text-sm text-gray-400">
+                    Google Cloud Storage Bucket
+                  </Label>
+                  <Input
+                    id="gcs-bucket"
+                    placeholder="your-bucket-name"
+                    value={backendCredentials.gcsBucket}
+                    onChange={(e) => setBackendCredentials(prev => ({ ...prev, gcsBucket: e.target.value }))}
+                    className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="vertex-region" className="text-sm text-gray-400">
+                    Vertex AI Region
+                  </Label>
+                  <Input
+                    id="vertex-region"
+                    placeholder="us-central1"
+                    value={backendCredentials.vertexAiRegion}
+                    onChange={(e) => setBackendCredentials(prev => ({ ...prev, vertexAiRegion: e.target.value }))}
+                    className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="elevenlabs-key" className="text-sm text-gray-400">
+                    ElevenLabs API Key (for audio generation)
+                  </Label>
+                  <Input
+                    id="elevenlabs-key"
+                    type="password"
+                    placeholder="sk_..."
+                    value={backendCredentials.elevenlabsApiKey}
+                    onChange={(e) => setBackendCredentials(prev => ({ ...prev, elevenlabsApiKey: e.target.value }))}
+                    className="bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="gc-credentials" className="text-sm text-gray-400">
+                    Google Cloud Service Account JSON
+                  </Label>
+                  <textarea
+                    id="gc-credentials"
+                    placeholder='{ "type": "service_account", "project_id": "...", ... }'
+                    value={gcCredentialsJson}
+                    onChange={(e) => setGcCredentialsJson(e.target.value)}
+                    rows={4}
+                    className="w-full bg-gray-700 border border-gray-600 text-gray-200 placeholder-gray-500 rounded-md px-3 py-2 text-sm resize-none"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Paste your service account JSON here for video generation
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
 
         </div>
 

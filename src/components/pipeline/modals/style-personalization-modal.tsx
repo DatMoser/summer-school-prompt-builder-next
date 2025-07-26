@@ -74,11 +74,10 @@ export default function StylePersonalizationModal({
     setErrorMessage(null);
 
     try {
-      const response = await fetch('/api/analyze-style', {
+      const response = await fetch('/api/mcp/analyze-style', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          ...(customApiKey && { 'x-gemini-api-key': customApiKey })
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           styleDescription: aiPrompt,
@@ -130,7 +129,8 @@ export default function StylePersonalizationModal({
         keyPhrases: result.keyPhrases || styleData.keyPhrases,
         targetAudience: result.targetAudience || styleData.targetAudience,
         contentStructure: result.contentStructure || styleData.contentStructure,
-        sourceDescription: `AI-generated: "${aiPrompt}"`,
+        customPrompt: result.additionalInstructions || styleData.customPrompt,
+        sourceDescription: result.sourceDescription || `AI-generated: "${aiPrompt}"`,
         isAIGenerated: true
       });
 
@@ -164,7 +164,7 @@ export default function StylePersonalizationModal({
 
   const handleCancel = () => {
     onOpenChange(false);
-    setStyleData(getDefaultStyle());
+    setStyleData(getEmptyStyle());
     setAiPrompt('');
   };
 

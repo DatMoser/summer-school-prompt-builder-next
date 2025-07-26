@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Settings, Images, HelpCircle } from "lucide-react";
+import { Settings, Images, HelpCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import type { EvidenceData, OutputSelectorData, PersonalHealthData, PipelineConnection, PipelineNode, StyleData, VisualStylingData } from "../lib/pipeline-types";
 import CanvasWorkspace from "../components/pipeline/canvas-workspace";
 import ComponentSidebar from "../components/pipeline/component-sidebar";
@@ -194,6 +194,32 @@ export default function PipelineBuilder() {
     return null;
   });
 
+  // Backend credentials state
+  const [backendCredentials, setBackendCredentials] = useState<{
+    geminiApiKey?: string;
+    googleCloudCredentials?: any;
+    googleCloudProject?: string;
+    vertexAiRegion?: string;
+    gcsBucket?: string;
+    elevenlabsApiKey?: string;
+  }>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-backend-credentials');
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved backend credentials:', error);
+      }
+    }
+    return {};
+  });
+
+  // Backend health check state
+  const [backendHealthStatus, setBackendHealthStatus] = useState<'checking' | 'healthy' | 'unhealthy' | 'unknown'>('unknown');
+  const [lastBackendHealthCheck, setLastBackendHealthCheck] = useState<Date | null>(null);
+
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStatus, setGenerationStatus] = useState("");
 
@@ -230,6 +256,7 @@ export default function PipelineBuilder() {
     selectedService: 'pipeline-builder-selected-service',
     customApiKey: 'pipeline-builder-custom-api-key',
     promptText: 'pipeline-builder-prompt-text',
+    backendCredentials: 'pipeline-builder-backend-credentials',
   };
 
   // Save state to localStorage
@@ -291,13 +318,14 @@ export default function PipelineBuilder() {
       localStorage.setItem(STORAGE_KEYS.selectedService, selectedService);
       if (customApiKey) localStorage.setItem(STORAGE_KEYS.customApiKey, customApiKey);
       localStorage.setItem(STORAGE_KEYS.promptText, promptText);
+      localStorage.setItem(STORAGE_KEYS.backendCredentials, JSON.stringify(backendCredentials));
 
       setLastSaveTime(new Date());
       // console.log('✅ State successfully saved to localStorage');
     } catch (error) {
       console.error('❌ Failed to save state to localStorage:', error);
     }
-  }, [nodes, connections, evidenceData, styleData, visualStylingData, personalData, outputSelectorData, selectedService, customApiKey, promptText]);
+  }, [nodes, connections, evidenceData, styleData, visualStylingData, personalData, outputSelectorData, selectedService, customApiKey, promptText, backendCredentials]);
 
   // Load state from localStorage
   const loadFromLocalStorage = useCallback(() => {
@@ -314,6 +342,7 @@ export default function PipelineBuilder() {
       const savedSelectedService = localStorage.getItem(STORAGE_KEYS.selectedService);
       const savedCustomApiKey = localStorage.getItem(STORAGE_KEYS.customApiKey);
       const savedPromptText = localStorage.getItem(STORAGE_KEYS.promptText);
+      const savedBackendCredentials = localStorage.getItem(STORAGE_KEYS.backendCredentials);
 
       // console.log('📊 localStorage contents check:', {
       //   hasNodes: !!savedNodes,
@@ -379,6 +408,11 @@ export default function PipelineBuilder() {
         // console.log('📜 Restored prompt text from localStorage');
       }
 
+      if (savedBackendCredentials) {
+        setBackendCredentials(JSON.parse(savedBackendCredentials));
+        // console.log('🔑 Restored backend credentials from localStorage');
+      }
+
     } catch (error) {
       console.error('❌ Failed to load state from localStorage:', error);
     }
@@ -410,6 +444,60 @@ export default function PipelineBuilder() {
     };
   }, [saveToLocalStorage]);
 
+  // Backend health check function
+  const checkBackendHealth = useCallback(async () => {
+    setBackendHealthStatus('checking');
+    
+    try {
+      // Use the Next.js API proxy to avoid CORS issues
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch('/api/health', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const healthData = await response.json().catch(() => null);
+        setBackendHealthStatus('healthy');
+        console.log('Backend health check passed:', healthData);
+      } else {
+        console.warn(`Backend health check failed with status: ${response.status} ${response.statusText}`);
+        setBackendHealthStatus('unhealthy');
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          console.error('Backend health check timed out after 5 seconds');
+        } else if (error.message.includes('fetch')) {
+          console.error('Backend health check failed - connection refused or network error:', error.message);
+        } else {
+          console.error('Backend health check failed:', error.message);
+        }
+      } else {
+        console.error('Backend health check failed with unknown error:', error);
+      }
+      setBackendHealthStatus('unhealthy');
+    } finally {
+      setLastBackendHealthCheck(new Date());
+    }
+  }, []);
+
+  // Initial health check and periodic health checks
+  useEffect(() => {
+    checkBackendHealth();
+    
+    // Check health every 60 seconds
+    const interval = setInterval(checkBackendHealth, 60000);
+    return () => clearInterval(interval);
+  }, [checkBackendHealth]);
+  
   // Debug: Log when component mounts to verify state loading
   useEffect(() => {
     // console.log('🚀 PipelineBuilder mounted with state:', {
@@ -667,6 +755,17 @@ export default function PipelineBuilder() {
   };
 
   const handleGenerate = () => {
+    // Check backend health first
+    if (backendHealthStatus === 'unhealthy') {
+      alert('Backend service is offline. Please check your backend connection in Settings before generating content.');
+      return;
+    }
+    
+    if (backendHealthStatus === 'unknown' || backendHealthStatus === 'checking') {
+      alert('Backend service status is unknown. Please wait for health check to complete or check Settings.');
+      return;
+    }
+    
     // Check if we have a prompt node and basic requirements
     const promptNode = nodes.find(n => n.type === 'prompt');
     if (!promptNode) {
@@ -761,6 +860,35 @@ export default function PipelineBuilder() {
     <div className="h-screen flex bg-gray-900 text-white overflow-hidden relative">
       {/* Top Right Controls */}
       <div className="absolute top-4 right-4 z-50 flex items-center gap-3">
+        {/* Backend Health Status Indicator */}
+        <div 
+          className={`text-xs px-2 py-1 rounded border flex items-center gap-1 cursor-pointer transition-colors ${
+            backendHealthStatus === 'healthy' 
+              ? 'text-emerald-400 bg-emerald-500/10 border-emerald-400/30 hover:bg-emerald-500/20' 
+              : backendHealthStatus === 'unhealthy'
+              ? 'text-red-400 bg-red-500/10 border-red-400/30 hover:bg-red-500/20'
+              : backendHealthStatus === 'checking'
+              ? 'text-blue-400 bg-blue-500/10 border-blue-400/30'
+              : 'text-gray-400 bg-gray-800/80 border-gray-600'
+          }`}
+          onClick={() => setSettingsModalOpen(true)}
+          title={
+            backendHealthStatus === 'healthy' 
+              ? 'Backend service is running normally. Click to open settings.' 
+              : backendHealthStatus === 'unhealthy'
+              ? 'Backend service is offline or unreachable. Click to open settings and check configuration.'
+              : backendHealthStatus === 'checking'
+              ? 'Checking backend service health... Click to open settings.'
+              : 'Backend service status unknown. Click to open settings and check configuration.'
+          }
+        >
+          {backendHealthStatus === 'checking' && <Loader2 className="w-3 h-3 animate-spin" />}
+          {backendHealthStatus === 'healthy' && <CheckCircle className="w-3 h-3" />}
+          {backendHealthStatus === 'unhealthy' && <XCircle className="w-3 h-3" />}
+          {backendHealthStatus === 'unknown' && <XCircle className="w-3 h-3" />}
+          Backend {backendHealthStatus === 'healthy' ? 'Online' : backendHealthStatus === 'checking' ? 'Checking...' : 'Offline'}
+        </div>
+        
         {/* Save Status Indicator */}
         {lastSaveTime && (
           <div className="text-xs text-gray-400 bg-gray-800/80 px-2 py-1 rounded border border-gray-600">
@@ -817,6 +945,7 @@ export default function PipelineBuilder() {
         onGenerate={handleGenerate}
         onSelectionChange={setSelectedComponentType}
         onHoverChange={setHoveredComponentType}
+        backendHealthStatus={backendHealthStatus}
         evidenceData={evidenceData}
         styleData={styleData}
         visualStylingData={visualStylingData}
@@ -929,6 +1058,8 @@ export default function PipelineBuilder() {
         onServiceChange={setSelectedService}
         onApiKeyUpdate={setCustomApiKey}
         currentApiKey={customApiKey}
+        onBackendCredentialsUpdate={setBackendCredentials}
+        currentBackendCredentials={backendCredentials}
         onResetStorage={() => {
           clearLocalStorage();
           // Reset all state to initial values
@@ -954,6 +1085,7 @@ export default function PipelineBuilder() {
           setOutputSelectorData(null);
           setSelectedService('gemini');
           setCustomApiKey(null);
+          setBackendCredentials({});
           setPromptText('You are a health content generation assistant with access to MCP tools.\n\nConnect components to access their data through the MCP protocol.');
           setLastSaveTime(null);
         }}
@@ -968,6 +1100,7 @@ export default function PipelineBuilder() {
         personalData={personalData}
         promptText={promptText}
         customApiKey={customApiKey}
+        backendCredentials={backendCredentials}
         onComplete={handleProcessingComplete}
         onCancel={handleProcessingCancel}
       />

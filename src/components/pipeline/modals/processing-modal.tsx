@@ -33,6 +33,13 @@ interface ProcessingModalProps {
   personalData?: any;
   promptText?: string;
   customApiKey?: string | null;
+  backendCredentials?: {
+    googleCloudCredentials?: any;
+    googleCloudProject?: string;
+    vertexAiRegion?: string;
+    gcsBucket?: string;
+    elevenlabsApiKey?: string;
+  };
   onComplete?: (result: GenerationResult) => void;
   onCancel?: () => void;
 }
@@ -55,6 +62,7 @@ export default function ProcessingModal({
   personalData,
   promptText,
   customApiKey,
+  backendCredentials,
   onComplete,
   onCancel
 }: ProcessingModalProps) {
@@ -155,6 +163,10 @@ export default function ProcessingModal({
     if (!open) return;
 
     let pollInterval: NodeJS.Timeout;
+    let retryCount = 0;
+    const maxRetries = 3;
+    let websocket: WebSocket | null = null;
+    let websocketConnected = false;
 
     const startProcessing = async () => {
       try {
@@ -172,10 +184,6 @@ export default function ProcessingModal({
           'Content-Type': 'application/json'
         };
 
-        if (customApiKey) {
-          headers['x-gemini-api-key'] = customApiKey;
-        }
-
         // Start generation
         const response = await fetch('/api/generate', {
           method: 'POST',
@@ -186,7 +194,12 @@ export default function ProcessingModal({
             evidenceData,
             styleData,
             personalData,
-            customApiKey
+            customApiKey,
+            googleCloudCredentials: backendCredentials?.googleCloudCredentials,
+            googleCloudProject: backendCredentials?.googleCloudProject,
+            vertexAiRegion: backendCredentials?.vertexAiRegion || 'us-central1',
+            gcsBucket: backendCredentials?.gcsBucket,
+            elevenlabsApiKey: backendCredentials?.elevenlabsApiKey
           })
         });
 
@@ -233,9 +246,46 @@ export default function ProcessingModal({
           console.error('Failed to save job to gallery:', error);
         }
 
-        // Start polling for status
+        // Try to establish WebSocket connection first
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+        const websocketUrl = `ws://${backendUrl.replace('http://', '').replace('https://', '')}/ws/${newJobId}`;
+        try {
+          websocket = new WebSocket(websocketUrl);
+          
+          websocket.onopen = () => {
+            console.log('WebSocket connected for real-time progress');
+            websocketConnected = true;
+          };
+          
+          websocket.onmessage = (event) => {
+            try {
+              const progressData = JSON.parse(event.data);
+              handleProgressUpdate(progressData, newJobId);
+            } catch (error) {
+              console.error('Failed to parse WebSocket message:', error);
+            }
+          };
+          
+          websocket.onerror = (error) => {
+            console.warn('WebSocket error, falling back to polling:', error);
+            websocketConnected = false;
+          };
+          
+          websocket.onclose = () => {
+            console.log('WebSocket connection closed');
+            websocketConnected = false;
+          };
+        } catch (error) {
+          console.warn('WebSocket not available, using polling:', error);
+        }
+        
+        // Fallback to polling if WebSocket fails or for backup
         let stepIndex = 0;
         pollInterval = setInterval(async () => {
+          // Skip polling if WebSocket is working unless it's been too long
+          if (websocketConnected) {
+            return;
+          }
           try {
             const statusResponse = await fetch(`/api/generate/${newJobId}`);
 
@@ -244,121 +294,25 @@ export default function ProcessingModal({
             }
 
             const statusData = await statusResponse.json();
+            
+            handleProgressUpdate(statusData, newJobId);
 
-            // Update progress based on API response
-            setOverallProgress(statusData.progress || 0);
 
-            // Update gallery item with current progress
-            try {
-              const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
-              if (savedHistory) {
-                const history = JSON.parse(savedHistory);
-                const itemIndex = history.findIndex((item: any) => item.id === newJobId);
-                if (itemIndex !== -1) {
-                  history[itemIndex] = {
-                    ...history[itemIndex],
-                    progress: statusData.progress || 0,
-                    status: statusData.status || 'started',
-                    lastUpdated: new Date().toISOString()
-                  };
-                  localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
-                }
-              }
-            } catch (error) {
-              console.error('Failed to update gallery item:', error);
-            }
-
-            // Update steps based on progress
-            const progressSteps = Math.floor((statusData.progress || 0) / (100 / steps.length));
-            if (progressSteps > stepIndex) {
-              // Complete previous steps and start next
-              for (let i = stepIndex; i < progressSteps && i < steps.length; i++) {
-                updateStepStatus(i, 'completed');
-              }
-              if (progressSteps < steps.length) {
-                updateStepStatus(progressSteps, 'active');
-                setCurrentStep(progressSteps);
-              }
-              stepIndex = progressSteps;
-            }
-
-            if (statusData.status === 'finished') {
-              clearInterval(pollInterval);
-
-              // Complete all steps
-              for (let i = 0; i < steps.length; i++) {
-                updateStepStatus(i, 'completed');
-              }
-
-              setStatus('finished');
-              setOverallProgress(100);
-              setCanCancel(false);
-
-              const result: GenerationResult = {
-                id: newJobId,
-                downloadUrl: statusData.downloadUrl || '',
-                format,
-                duration: statusData.duration || (format === 'video' ? 120 : 180),
-                fileSize: statusData.fileSize || (format === 'video' ? 25600000 : 5120000)
-              };
-              setResult(result);
-
-              // Update gallery item with final result
-              try {
-                const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
-                if (savedHistory) {
-                  const history = JSON.parse(savedHistory);
-                  const itemIndex = history.findIndex((item: any) => item.id === newJobId);
-                  if (itemIndex !== -1) {
-                    history[itemIndex] = {
-                      ...history[itemIndex],
-                      status: 'finished',
-                      downloadUrl: statusData.downloadUrl || '',
-                      thumbnailUrl: statusData.thumbnailUrl,
-                      duration: statusData.duration || (format === 'video' ? 120 : 180),
-                      fileSize: statusData.fileSize || (format === 'video' ? 25600000 : 5120000),
-                      progress: 100,
-                      lastUpdated: new Date().toISOString()
-                    };
-                    localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
-                  }
-                }
-              } catch (error) {
-                console.error('Failed to update gallery item with final result:', error);
-              }
-
-            } else if (statusData.status === 'failed') {
-              clearInterval(pollInterval);
-              setStatus('failed');
-              setError(statusData.error || 'Generation failed');
-              setCanCancel(false);
-
-              // Update gallery item with error status
-              try {
-                const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
-                if (savedHistory) {
-                  const history = JSON.parse(savedHistory);
-                  const itemIndex = history.findIndex((item: any) => item.id === newJobId);
-                  if (itemIndex !== -1) {
-                    history[itemIndex] = {
-                      ...history[itemIndex],
-                      status: 'failed',
-                      error: statusData.error || 'Generation failed',
-                      lastUpdated: new Date().toISOString()
-                    };
-                    localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
-                  }
-                }
-              } catch (error) {
-                console.error('Failed to update gallery item with error:', error);
-              }
-            }
+            // All progress handling is now done in handleProgressUpdate
 
           } catch (pollError) {
             console.error('Polling error:', pollError);
-            // Continue polling on minor errors, but stop after several failures
+            retryCount++;
+            if (retryCount >= maxRetries) {
+              console.error('Max polling retries exceeded, stopping');
+              clearInterval(pollInterval);
+              setStatus('failed');
+              setError('Failed to check generation status');
+              setCanCancel(false);
+            }
+            // Continue polling on minor errors up to max retries
           }
-        }, 2000); // Poll every 2 seconds
+        }, websocketConnected ? 10000 : 3000); // Poll less frequently if WebSocket is working
 
       } catch (error: any) {
         console.error('Processing error:', error);
@@ -391,12 +345,134 @@ export default function ProcessingModal({
 
     startProcessing();
 
+    // Helper function to handle progress updates from both WebSocket and polling
+    const handleProgressUpdate = (statusData: any, jobId: string) => {
+      // Update progress based on API response
+      setOverallProgress(statusData.progress || 0);
+
+      // Update gallery item with current progress
+      try {
+        const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
+        if (savedHistory) {
+          const history = JSON.parse(savedHistory);
+          const itemIndex = history.findIndex((item: any) => item.id === jobId);
+          if (itemIndex !== -1) {
+            history[itemIndex] = {
+              ...history[itemIndex],
+              progress: statusData.progress || 0,
+              status: statusData.status || 'started',
+              currentStep: statusData.currentStep || 'Processing',
+              message: statusData.message,
+              lastUpdated: new Date().toISOString()
+            };
+            localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to update gallery item:', error);
+      }
+
+      // Update steps based on progress
+      const progressSteps = Math.floor((statusData.progress || 0) / (100 / steps.length));
+      if (progressSteps > stepIndex) {
+        // Complete previous steps and start next
+        for (let i = stepIndex; i < progressSteps && i < steps.length; i++) {
+          updateStepStatus(i, 'completed');
+        }
+        if (progressSteps < steps.length) {
+          updateStepStatus(progressSteps, 'active');
+          setCurrentStep(progressSteps);
+        }
+        stepIndex = progressSteps;
+      }
+
+      if (statusData.status === 'finished') {
+        if (pollInterval) clearInterval(pollInterval);
+        if (websocket) websocket.close();
+
+        // Complete all steps
+        for (let i = 0; i < steps.length; i++) {
+          updateStepStatus(i, 'completed');
+        }
+
+        setStatus('finished');
+        setOverallProgress(100);
+        setCanCancel(false);
+
+        const result: GenerationResult = {
+          id: jobId,
+          downloadUrl: statusData.downloadUrl || '',
+          thumbnailUrl: statusData.thumbnailUrl,
+          format,
+          duration: statusData.duration || (format === 'video' ? 8 : 180), // Backend uses 8s for video
+          fileSize: statusData.fileSize || (format === 'video' ? 25600000 : 5120000)
+        };
+        setResult(result);
+
+        // Update gallery item with final result
+        try {
+          const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
+          if (savedHistory) {
+            const history = JSON.parse(savedHistory);
+            const itemIndex = history.findIndex((item: any) => item.id === jobId);
+            if (itemIndex !== -1) {
+              history[itemIndex] = {
+                ...history[itemIndex],
+                status: 'finished',
+                downloadUrl: statusData.downloadUrl || '',
+                thumbnailUrl: statusData.thumbnailUrl,
+                duration: statusData.duration || (format === 'video' ? 8 : 180), // Backend uses 8s for video
+                fileSize: statusData.fileSize || (format === 'video' ? 25600000 : 5120000),
+                progress: 100,
+                currentStep: 'Completed',
+                lastUpdated: new Date().toISOString()
+              };
+              localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
+            }
+          }
+        } catch (error) {
+          console.error('Failed to update gallery item with final result:', error);
+        }
+
+      } else if (statusData.status === 'failed') {
+        if (pollInterval) clearInterval(pollInterval);
+        if (websocket) websocket.close();
+        setStatus('failed');
+        setError(statusData.error || statusData.message || 'Generation failed');
+        setCanCancel(false);
+
+        // Update gallery item with error status
+        try {
+          const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
+          if (savedHistory) {
+            const history = JSON.parse(savedHistory);
+            const itemIndex = history.findIndex((item: any) => item.id === jobId);
+            if (itemIndex !== -1) {
+              history[itemIndex] = {
+                ...history[itemIndex],
+                status: 'failed',
+                error: statusData.error || statusData.message || 'Generation failed',
+                currentStep: 'Failed',
+                lastUpdated: new Date().toISOString()
+              };
+              localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
+            }
+          }
+        } catch (error) {
+          console.error('Failed to update gallery item with error:', error);
+        }
+      }
+    };
+
     return () => {
       if (pollInterval) {
         clearInterval(pollInterval);
       }
+      if (websocket) {
+        websocket.close();
+      }
     };
-  }, [open, format, promptText, evidenceData, styleData, personalData, customApiKey]);
+  }, [open, format, promptText, evidenceData, styleData, personalData, customApiKey, backendCredentials]);
 
   const updateStepStatus = (stepIndex: number, status: ProcessingStep['status']) => {
     setSteps(prevSteps =>

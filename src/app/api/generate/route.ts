@@ -1,49 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Types for MCP API
-interface MCPGenerationRequest {
+// Types for Backend API
+interface BackendGenerationRequest {
   mode: 'video' | 'audio';
   prompt: string;
-  image?: {
-    bytesBase64Encoded?: string;
-    gcsUri?: string;
-    mimeType?: string;
-  };
-  lastFrame?: {
-    bytesBase64Encoded?: string;
-    gcsUri?: string;
-    mimeType?: string;
-  };
-  video?: {
-    bytesBase64Encoded?: string;
-    gcsUri?: string;
-    mimeType?: string;
+  generate_thumbnail?: boolean;
+  thumbnail_prompt?: string;
+  credentials: {
+    gemini_api_key?: string;
+    google_cloud_credentials?: any;
+    google_cloud_project?: string;
+    vertex_ai_region?: string;
+    gcs_bucket?: string;
+    elevenlabs_api_key?: string;
   };
   parameters?: {
-    aspectRatio?: string;
+    model?: string;
     durationSeconds?: number;
-    enhancePrompt?: boolean;
+    aspectRatio?: string;
     generateAudio?: boolean;
-    negativePrompt?: string;
-    personGeneration?: string;
-    resolution?: string;
     sampleCount?: number;
-    seed?: number;
-    storageUri?: string;
   };
 }
 
-interface MCPGenerationResponse {
+interface BackendGenerationResponse {
   job_id: string;
   status: 'queued' | 'started' | 'finished' | 'failed';
-  progress: number;
-  current_step: string;
-  total_steps: number;
-  step_number: number;
+  progress?: number;
+  current_step?: string;
+  message?: string;
 }
 
 // Environment configuration
-const MCP_BASE_URL = process.env.MCP_BASE_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,7 +45,12 @@ export async function POST(request: NextRequest) {
       evidenceData,
       styleData,
       personalData,
-      customApiKey
+      customApiKey,
+      googleCloudCredentials,
+      googleCloudProject,
+      vertexAiRegion,
+      gcsBucket,
+      elevenlabsApiKey
     } = body;
 
     // Validate required fields
@@ -120,72 +114,177 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build MCP request
-    const mcpRequest: MCPGenerationRequest = {
+    // Build credentials object with environment variable fallbacks
+    const credentials: any = {};
+    
+    // TEMPORARY WORKAROUND: Backend currently requires Gemini API key for all operations
+    // This should be fixed in the backend to not require Gemini for audio-only generation
+    const geminiKey = customApiKey || process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+      credentials.gemini_api_key = geminiKey;
+    } else if (format === 'video') {
+      // Video generation absolutely requires Gemini API key
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Gemini API key is required for video generation. Please provide it in Settings or set GEMINI_API_KEY environment variable.' 
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Add other credentials if provided
+    if (googleCloudCredentials) credentials.google_cloud_credentials = googleCloudCredentials;
+    if (googleCloudProject) credentials.google_cloud_project = googleCloudProject;
+    if (vertexAiRegion) credentials.vertex_ai_region = vertexAiRegion;
+    if (gcsBucket) credentials.gcs_bucket = gcsBucket;
+    if (elevenlabsApiKey) credentials.elevenlabs_api_key = elevenlabsApiKey;
+    
+    // Add environment variable fallbacks for other credentials
+    if (!credentials.elevenlabs_api_key && process.env.ELEVENLABS_API_KEY) {
+      credentials.elevenlabs_api_key = process.env.ELEVENLABS_API_KEY;
+    }
+    if (!credentials.google_cloud_project && process.env.GOOGLE_CLOUD_PROJECT) {
+      credentials.google_cloud_project = process.env.GOOGLE_CLOUD_PROJECT;
+    }
+    if (!credentials.vertex_ai_region && process.env.VERTEX_AI_REGION) {
+      credentials.vertex_ai_region = process.env.VERTEX_AI_REGION;
+    }
+    if (!credentials.gcs_bucket && process.env.GCS_BUCKET) {
+      credentials.gcs_bucket = process.env.GCS_BUCKET;
+    }
+
+    // Build backend request
+    const backendRequest: BackendGenerationRequest = {
       mode: format,
       prompt: enhancedPrompt,
+      generate_thumbnail: format === 'audio', // Generate thumbnails for audio content
+      thumbnail_prompt: format === 'audio' ? `Professional ${styleData?.tone || 'modern'} podcast cover design` : undefined,
+      credentials,
       parameters: {
-        aspectRatio: '16:9',
-        durationSeconds: format === 'video' ? 30 : 120, // 30s video, 2min audio
-        enhancePrompt: true,
-        generateAudio: true,
+        model: format === 'video' ? 'veo-3.0-generate-preview' : undefined,
+        durationSeconds: format === 'video' ? 8 : undefined, // 8s video as per backend docs
+        aspectRatio: format === 'video' ? '16:9' : undefined,
+        generateAudio: format === 'video',
         sampleCount: 1
       }
     };
 
-    // Make request to MCP service
-    const mcpResponse = await fetch(`${MCP_BASE_URL}/mcp`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(customApiKey && { 'Authorization': `Bearer ${customApiKey}` })
-      },
-      body: JSON.stringify(mcpRequest)
+    // Log the request for debugging
+    console.log(`Generating ${format} content with request:`, {
+      mode: backendRequest.mode,
+      credentials: Object.keys(backendRequest.credentials).reduce((acc, key) => {
+        acc[key] = key.includes('key') || key.includes('credentials') ? '[REDACTED]' : backendRequest.credentials[key];
+        return acc;
+      }, {} as any),
+      parameters: backendRequest.parameters
     });
 
-    if (!mcpResponse.ok) {
-      const errorText = await mcpResponse.text();
-      console.error('MCP API error:', errorText);
-      
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: `Generation service error: ${mcpResponse.status} ${mcpResponse.statusText}`,
-          details: errorText
+    // Make request to backend service with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    try {
+      const backendResponse = await fetch(`${BACKEND_URL}/mcp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
-        { status: mcpResponse.status }
-      );
+        body: JSON.stringify(backendRequest),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!backendResponse.ok) {
+        const errorText = await backendResponse.text();
+        console.error('Backend API error:', errorText);
+        
+        // Provide more specific error messages based on status code
+        let userFriendlyError = 'Generation service error';
+        if (backendResponse.status === 503) {
+          userFriendlyError = 'Generation service is temporarily unavailable. Please try again in a few moments.';
+        } else if (backendResponse.status === 500) {
+          userFriendlyError = 'Internal server error in generation service. Please check your configuration in Settings.';
+        } else if (backendResponse.status === 404) {
+          userFriendlyError = 'Generation endpoint not found. Please verify your backend service is running correctly.';
+        } else if (backendResponse.status >= 400 && backendResponse.status < 500) {
+          userFriendlyError = 'Invalid request to generation service. Please check your configuration.';
+        }
+        
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: userFriendlyError,
+            details: errorText,
+            statusCode: backendResponse.status
+          },
+          { status: backendResponse.status }
+        );
+      }
+
+      const backendResult: BackendGenerationResponse = await backendResponse.json();
+
+      // Store generation job info for tracking
+      const jobInfo = {
+        id: backendResult.job_id,
+        format,
+        prompt: enhancedPrompt,
+        originalPrompt: prompt,
+        evidenceUsed: !!evidenceData?.fileContent,
+        styleUsed: !!styleData,
+        personalDataUsed: !!personalData,
+        createdAt: new Date().toISOString(),
+        status: backendResult.status,
+        progress: backendResult.progress || 0,
+        currentStep: backendResult.current_step || 'Initializing',
+        message: backendResult.message
+      };
+
+      return NextResponse.json({
+        success: true,
+        jobId: backendResult.job_id,
+        status: backendResult.status,
+        progress: backendResult.progress || 0,
+        currentStep: backendResult.current_step || 'Initializing',
+        message: backendResult.message,
+        jobInfo
+      });
+
+    } catch (fetchError: unknown) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('Backend request timed out after 30 seconds');
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Request timed out - The generation service took too long to respond. Please try again or check if the service is running.',
+            details: 'Request timeout after 30 seconds'
+          },
+          { status: 504 }
+        );
+      }
+      
+      // Handle network errors (service unavailable)
+      if (fetchError instanceof Error && (
+        fetchError.message.includes('fetch') || 
+        fetchError.message.includes('ECONNREFUSED') ||
+        fetchError.message.includes('network')
+      )) {
+        console.error('Backend service connection failed:', fetchError.message);
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Generation service is unavailable - Cannot connect to the backend service. Please ensure it is running and accessible.',
+            details: fetchError.message
+          },
+          { status: 503 }
+        );
+      }
+      
+      throw fetchError; // Re-throw unexpected errors to outer catch
     }
-
-    const mcpResult: MCPGenerationResponse = await mcpResponse.json();
-
-    // Store generation job info for tracking
-    const jobInfo = {
-      id: mcpResult.job_id,
-      format,
-      prompt: enhancedPrompt,
-      originalPrompt: prompt,
-      evidenceUsed: !!evidenceData?.fileContent,
-      styleUsed: !!styleData,
-      personalDataUsed: !!personalData,
-      createdAt: new Date().toISOString(),
-      status: mcpResult.status,
-      progress: mcpResult.progress,
-      currentStep: mcpResult.current_step,
-      totalSteps: mcpResult.total_steps,
-      stepNumber: mcpResult.step_number
-    };
-
-    return NextResponse.json({
-      success: true,
-      jobId: mcpResult.job_id,
-      status: mcpResult.status,
-      progress: mcpResult.progress,
-      currentStep: mcpResult.current_step,
-      totalSteps: mcpResult.total_steps,
-      stepNumber: mcpResult.step_number,
-      jobInfo
-    });
 
   } catch (error: unknown) {
     console.error('Generation API error:', error);
@@ -193,7 +292,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         success: false, 
-        error: 'Failed to start generation',
+        error: 'Failed to start generation - An unexpected error occurred while processing your request.',
         details: error instanceof Error ? error.message : 'Unknown error' 
       },
       { status: 500 }

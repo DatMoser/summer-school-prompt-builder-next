@@ -30,6 +30,7 @@ interface CanvasWorkspaceProps {
   onGenerate: () => void;
   onSelectionChange?: (selectedType: string | null) => void;
   onHoverChange?: (hoveredType: string | null) => void;
+  backendHealthStatus?: 'checking' | 'healthy' | 'unhealthy' | 'unknown';
   // Configuration data for display
   evidenceData?: any;
   styleData?: any;
@@ -57,6 +58,7 @@ function CanvasWorkspaceContent({
   onGenerate,
   onSelectionChange,
   onHoverChange,
+  backendHealthStatus,
   evidenceData,
   styleData,
   visualStylingData,
@@ -366,6 +368,7 @@ function CanvasWorkspaceContent({
             onGenerate: onGenerate,
             customText: node.data.customText || '',
             selectedComponentType: selectedComponentType,
+            backendHealthStatus: backendHealthStatus,
             // Add a unique key to force React to see this as a new object when connections change
             _renderKey: `${Date.now()}-${(node.data.connectedComponentsWithIds || []).length}`,
             // Add a timestamp that forces re-render when connections change

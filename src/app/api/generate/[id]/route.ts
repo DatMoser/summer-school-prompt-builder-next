@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Types for MCP API status response
-interface MCPStatusResponse {
+// Types for Backend API status response
+interface BackendStatusResponse {
   job_id: string;
   status: 'queued' | 'started' | 'finished' | 'failed' | 'not_found';
   download_url?: string;
-  progress: number;
-  current_step: string;
-  total_steps: number;
-  step_number: number;
-  operation_name?: string;
+  thumbnail_url?: string;
+  progress?: number;
+  current_step?: string;
+  message?: string;
+  error?: string;
+  duration?: number;
+  file_size?: number;
 }
 
 // Environment configuration
-const MCP_BASE_URL = process.env.MCP_BASE_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 export async function GET(
   request: NextRequest,
@@ -34,57 +36,110 @@ export async function GET(
     // Choose endpoint based on whether we want polling or immediate response
     const endpoint = usePolling ? `/mcp/${jobId}/wait` : `/mcp/${jobId}`;
     
-    // Make request to MCP service
-    const mcpResponse = await fetch(`${MCP_BASE_URL}${endpoint}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    // Make request to backend service with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout for status checks
+    
+    try {
+      const backendResponse = await fetch(`${BACKEND_URL}${endpoint}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal
+      });
 
-    if (!mcpResponse.ok) {
-      if (mcpResponse.status === 404) {
+      clearTimeout(timeoutId);
+
+      if (!backendResponse.ok) {
+        if (backendResponse.status === 404) {
+          return NextResponse.json(
+            { success: false, error: 'Job not found or has expired' },
+            { status: 404 }
+          );
+        }
+        
+        const errorText = await backendResponse.text();
+        console.error('Backend API error:', errorText);
+        
+        // Provide more specific error messages
+        let userFriendlyError = 'Generation service error';
+        if (backendResponse.status === 503) {
+          userFriendlyError = 'Generation service is temporarily unavailable';
+        } else if (backendResponse.status === 500) {
+          userFriendlyError = 'Internal server error in generation service';
+        }
+        
         return NextResponse.json(
-          { success: false, error: 'Job not found' },
-          { status: 404 }
+          { 
+            success: false, 
+            error: userFriendlyError,
+            details: errorText,
+            statusCode: backendResponse.status
+          },
+          { status: backendResponse.status }
+        );
+      }
+    } catch (fetchError: unknown) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('Backend status request timed out');
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Status check timed out - The generation service is not responding',
+            details: 'Request timeout after 10 seconds'
+          },
+          { status: 504 }
         );
       }
       
-      const errorText = await mcpResponse.text();
-      console.error('MCP API error:', errorText);
+      // Handle network errors
+      if (fetchError instanceof Error && (
+        fetchError.message.includes('fetch') || 
+        fetchError.message.includes('ECONNREFUSED') ||
+        fetchError.message.includes('network')
+      )) {
+        console.error('Backend service connection failed:', fetchError.message);
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Generation service is unavailable - Cannot connect to check job status',
+            details: fetchError.message
+          },
+          { status: 503 }
+        );
+      }
       
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: `Generation service error: ${mcpResponse.status} ${mcpResponse.statusText}`,
-          details: errorText
-        },
-        { status: mcpResponse.status }
-      );
+      throw fetchError; // Re-throw unexpected errors to outer catch
     }
 
-    const mcpResult: MCPStatusResponse = await mcpResponse.json();
+    const backendResult: BackendStatusResponse = await backendResponse.json();
 
     // Build response with additional metadata
     const response = {
       success: true,
-      jobId: mcpResult.job_id,
-      status: mcpResult.status,
-      progress: mcpResult.progress,
-      currentStep: mcpResult.current_step,
-      totalSteps: mcpResult.total_steps,
-      stepNumber: mcpResult.step_number,
-      downloadUrl: mcpResult.download_url,
-      operationName: mcpResult.operation_name,
-      isComplete: mcpResult.status === 'finished',
-      isFailed: mcpResult.status === 'failed'
+      jobId: backendResult.job_id,
+      status: backendResult.status,
+      progress: backendResult.progress || 0,
+      currentStep: backendResult.current_step || 'Processing',
+      message: backendResult.message,
+      error: backendResult.error,
+      downloadUrl: backendResult.download_url,
+      thumbnailUrl: backendResult.thumbnail_url,
+      duration: backendResult.duration,
+      fileSize: backendResult.file_size,
+      isComplete: backendResult.status === 'finished',
+      isFailed: backendResult.status === 'failed'
     };
 
     // If job is complete, we might want to save it to user's gallery
-    if (mcpResult.status === 'finished' && mcpResult.download_url) {
+    if (backendResult.status === 'finished' && backendResult.download_url) {
       // Here you could trigger saving to user's gallery
       // For now, we'll just include the download URL in the response
-      response.downloadUrl = mcpResult.download_url;
+      response.downloadUrl = backendResult.download_url;
+      response.thumbnailUrl = backendResult.thumbnail_url;
     }
 
     return NextResponse.json(response);
@@ -118,33 +173,33 @@ export async function DELETE(
       );
     }
 
-    // Note: This endpoint may not exist in the MCP service yet
+    // Note: This endpoint may not exist in the backend service yet
     // This is a placeholder for future cancellation functionality
-    const mcpResponse = await fetch(`${MCP_BASE_URL}/mcp/${jobId}/cancel`, {
+    const backendResponse = await fetch(`${BACKEND_URL}/mcp/${jobId}/cancel`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json'
       }
     });
 
-    if (!mcpResponse.ok) {
-      if (mcpResponse.status === 404) {
+    if (!backendResponse.ok) {
+      if (backendResponse.status === 404) {
         return NextResponse.json(
           { success: false, error: 'Job not found or cannot be cancelled' },
           { status: 404 }
         );
       }
       
-      const errorText = await mcpResponse.text();
-      console.error('MCP API cancellation error:', errorText);
+      const errorText = await backendResponse.text();
+      console.error('Backend API cancellation error:', errorText);
       
       return NextResponse.json(
         { 
           success: false, 
-          error: `Cancellation failed: ${mcpResponse.status} ${mcpResponse.statusText}`,
+          error: `Cancellation failed: ${backendResponse.status} ${backendResponse.statusText}`,
           details: errorText
         },
-        { status: mcpResponse.status }
+        { status: backendResponse.status }
       );
     }
 

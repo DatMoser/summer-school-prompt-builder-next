@@ -70,8 +70,11 @@ export default function GalleryItem({ item, onPreview }: GalleryItemProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
+      case 'finished':
         return 'bg-emerald-500/20 text-emerald-400 border-emerald-400/30';
       case 'processing':
+      case 'started':
+      case 'queued':
         return 'bg-blue-500/20 text-blue-400 border-blue-400/30';
       case 'failed':
         return 'bg-red-500/20 text-red-400 border-red-400/30';
@@ -137,7 +140,7 @@ export default function GalleryItem({ item, onPreview }: GalleryItemProps) {
           </div>
 
           {/* Play Button Overlay */}
-          {item.status === 'completed' && isHovered && (
+          {(item.status === 'completed' || item.status === 'finished') && isHovered && (
             <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
               <Button
                 size="sm"
@@ -202,7 +205,7 @@ export default function GalleryItem({ item, onPreview }: GalleryItemProps) {
 
           {/* Action Buttons */}
           <div className="flex gap-2 mt-4">
-            {item.status === 'completed' && (
+            {(item.status === 'completed' || item.status === 'finished') && (
               <>
                 <Button
                   size="sm"
