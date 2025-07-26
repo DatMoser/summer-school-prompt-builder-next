@@ -428,7 +428,11 @@ export default function PipelineBuilder() {
       Object.values(STORAGE_KEYS).forEach(key => {
         localStorage.removeItem(key);
       });
-      // console.log('🗑️ Cleared all pipeline state from localStorage');
+      
+      // Also clear gallery data
+      localStorage.removeItem('pipeline-builder-generation-history');
+      
+      // console.log('🗑️ Cleared all pipeline state and gallery data from localStorage');
     } catch (error) {
       console.error('❌ Failed to clear localStorage:', error);
     }
@@ -742,6 +746,46 @@ export default function PipelineBuilder() {
       finalPrompt += `Use this data to personalize health content and recommendations.\n\n`;
     }
     
+    // Add visual styling if connected
+    if (connectedComponents.some(c => c.type === 'visual-styling') && visualStylingData) {
+      finalPrompt += `VISUAL STYLING REQUIREMENTS:\n`;
+      
+      // Add video styling for video format
+      if (outputSelectorData?.selectedFormat === 'video' && visualStylingData.videoStyle) {
+        const video = visualStylingData.videoStyle;
+        finalPrompt += `Video Style: ${video.visualTheme} theme with ${video.colorScheme} colors\n`;
+        finalPrompt += `Typography: ${video.fontStyle} fonts\n`;
+        finalPrompt += `Layout: ${video.layoutStyle} composition\n`;
+        finalPrompt += `Background: ${video.backgroundStyle} style\n`;
+        finalPrompt += `Animation: ${video.animationLevel} level\n`;
+      }
+      
+      // Add podcast thumbnail styling for audio format
+      if (outputSelectorData?.selectedFormat === 'podcast' && visualStylingData.podcastThumbnail) {
+        const podcast = visualStylingData.podcastThumbnail;
+        finalPrompt += `Podcast Thumbnail: ${podcast.designTheme} design with ${podcast.colorScheme} colors\n`;
+        finalPrompt += `Typography: ${podcast.fontStyle} fonts in ${podcast.layoutType} layout\n`;
+        finalPrompt += `Background: ${podcast.backgroundStyle} style\n`;
+        if (podcast.iconStyle && podcast.iconStyle !== 'none') {
+          finalPrompt += `Icons: ${podcast.iconStyle} style elements\n`;
+        }
+      }
+      
+      if (visualStylingData.healthFocus) {
+        finalPrompt += `Health Focus: ${visualStylingData.healthFocus}\n`;
+      }
+      
+      if (visualStylingData.targetDemographic) {
+        finalPrompt += `Target Demographic: ${visualStylingData.targetDemographic}\n`;
+      }
+      
+      if (visualStylingData.customPrompt) {
+        finalPrompt += `Custom Visual Instructions: ${visualStylingData.customPrompt}\n`;
+      }
+      
+      finalPrompt += `\n`;
+    }
+    
     // Add output format if connected
     if (connectedComponents.some(c => c.type === 'output-selector') && outputSelectorData) {
       finalPrompt += `OUTPUT FORMAT: ${outputSelectorData.selectedFormat}\n\n`;
@@ -777,6 +821,15 @@ export default function PipelineBuilder() {
       return;
     }
 
+    // Check for output component connection and configuration
+    const connectedComponents = promptNode.data.connectedComponentsWithIds || [];
+    const hasOutputSelector = connectedComponents.some(c => c.type === 'output-selector');
+    
+    if (!hasOutputSelector || !outputSelectorData) {
+      alert('Please connect and configure an Output Selector component to specify the generation format (video or podcast).');
+      return;
+    }
+
     // Check for minimum viable configuration (evidence + any connections)
     const hasEvidence = evidenceData !== null;
     const hasConnections = connections.some(conn => conn.target === promptNode.id);
@@ -809,39 +862,62 @@ export default function PipelineBuilder() {
   };
 
   const handleProcessingComplete = (result: GenerationResult) => {
-    // Save to gallery history in localStorage
+    // Update existing gallery item instead of creating a new one
     try {
       const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
       const history = savedHistory ? JSON.parse(savedHistory) : [];
       
-      // Get connected components information
-      const promptNode = nodes.find(n => n.type === 'prompt');
-      const connectedComponents = promptNode ? connections
-        .filter(conn => conn.target === promptNode.id)
-        .map(conn => {
-          const sourceNode = nodes.find(n => n.id === conn.source);
-          return sourceNode ? sourceNode.type : 'unknown';
-        }) : [];
+      // Find existing item by ID and update it
+      const existingItemIndex = history.findIndex((item: any) => item.id === result.id);
       
-      const newItem = {
-        id: result.id,
-        title: currentGenerationTitle || `Generated ${result.format === 'video' ? 'Video' : 'Podcast'} Content`,
-        format: result.format,
-        downloadUrl: result.downloadUrl,
-        thumbnailUrl: result.thumbnailUrl,
-        duration: result.duration,
-        fileSize: result.fileSize,
-        createdAt: new Date().toISOString(),
-        status: 'completed',
-        metadata: {
-          evidenceUsed: evidenceData !== null,
-          styleUsed: styleData !== null,
-          personalDataUsed: personalData !== null,
-          connectedComponents: connectedComponents
-        }
-      };
+      if (existingItemIndex !== -1) {
+        // Update existing item with completion data
+        const existingItem = history[existingItemIndex];
+        const updatedItem = {
+          ...existingItem,
+          title: currentGenerationTitle || existingItem.title || `Generated ${result.format === 'video' ? 'Video' : 'Podcast'} Content`,
+          downloadUrl: result.downloadUrl,
+          thumbnailUrl: result.thumbnailUrl,
+          duration: result.duration,
+          fileSize: result.fileSize,
+          status: 'completed',
+          progress: 100,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        history[existingItemIndex] = updatedItem;
+      } else {
+        // Fallback: create new item if somehow it doesn't exist
+        console.warn('Gallery item not found for completed job, creating new item');
+        const promptNode = nodes.find(n => n.type === 'prompt');
+        const connectedComponents = promptNode ? connections
+          .filter(conn => conn.target === promptNode.id)
+          .map(conn => {
+            const sourceNode = nodes.find(n => n.id === conn.source);
+            return sourceNode ? sourceNode.type : 'unknown';
+          }) : [];
+        
+        const newItem = {
+          id: result.id,
+          title: currentGenerationTitle || `Generated ${result.format === 'video' ? 'Video' : 'Podcast'} Content`,
+          format: result.format,
+          downloadUrl: result.downloadUrl,
+          thumbnailUrl: result.thumbnailUrl,
+          duration: result.duration,
+          fileSize: result.fileSize,
+          createdAt: new Date().toISOString(),
+          status: 'completed',
+          metadata: {
+            evidenceUsed: evidenceData !== null,
+            styleUsed: styleData !== null,
+            personalDataUsed: personalData !== null,
+            connectedComponents: connectedComponents
+          }
+        };
+        
+        history.unshift(newItem);
+      }
       
-      history.unshift(newItem); // Add to beginning
       localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
       
       // Reset generation state
@@ -986,6 +1062,7 @@ export default function PipelineBuilder() {
         open={styleModalOpen}
         onOpenChange={setStyleModalOpen}
         customApiKey={customApiKey}
+        existingData={styleData}
         onDataUpdate={(data) => {
           setStyleData(data);
           if (selectedNodeForConfig) {
@@ -1103,6 +1180,7 @@ export default function PipelineBuilder() {
         format={currentGenerationFormat}
         evidenceData={evidenceData}
         styleData={styleData}
+        visualStylingData={visualStylingData}
         personalData={personalData}
         promptText={promptText}
         customApiKey={customApiKey}

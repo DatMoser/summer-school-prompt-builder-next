@@ -52,7 +52,38 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
           ...item,
           createdAt: new Date(item.createdAt)
         }));
-        setItems(parsedItems);
+        
+        // Deduplicate items by ID to prevent React key errors
+        const deduplicatedItems = parsedItems.reduce((acc: any[], current: any) => {
+          const existingIndex = acc.findIndex(item => item.id === current.id);
+          if (existingIndex === -1) {
+            // Item doesn't exist, add it
+            acc.push(current);
+          } else {
+            // Item exists, keep the one with more recent lastUpdated time or the completed one
+            const existing = acc[existingIndex];
+            const currentTime = current.lastUpdated ? new Date(current.lastUpdated).getTime() : new Date(current.createdAt).getTime();
+            const existingTime = existing.lastUpdated ? new Date(existing.lastUpdated).getTime() : new Date(existing.createdAt).getTime();
+            
+            // Keep the more complete/recent item
+            if (current.status === 'completed' && existing.status !== 'completed') {
+              acc[existingIndex] = current;
+            } else if (current.status !== 'completed' && existing.status === 'completed') {
+              // Keep existing completed item
+            } else if (currentTime > existingTime) {
+              acc[existingIndex] = current;
+            }
+          }
+          return acc;
+        }, []);
+        
+        // If we deduplicated items, save the clean list back to localStorage
+        if (deduplicatedItems.length !== parsedItems.length) {
+          console.log(`Deduplicated gallery: ${parsedItems.length} -> ${deduplicatedItems.length} items`);
+          localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(deduplicatedItems));
+        }
+        
+        setItems(deduplicatedItems);
       } else {
         // No saved items, start with empty gallery
         setItems([]);
@@ -81,6 +112,7 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
       }
 
       let hasUpdates = false;
+      const jobsToRemove: string[] = [];
 
       // Check status for each incomplete job
       for (const job of incompleteJobs) {
@@ -113,25 +145,59 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
               history[jobIndex] = updatedJob;
               hasUpdates = true;
             }
+          } else if (response.status === 404) {
+            // Job not found - remove from gallery
+            console.log(`Job ${job.id} not found on server, removing from gallery`);
+            jobsToRemove.push(job.id);
+            hasUpdates = true;
+          } else if (response.status >= 500) {
+            // Server error - mark job as failed
+            const jobIndex = history.findIndex((item: any) => item.id === job.id);
+            if (jobIndex !== -1) {
+              history[jobIndex] = {
+                ...history[jobIndex],
+                status: 'failed',
+                error: 'Server error occurred',
+                lastUpdated: new Date().toISOString()
+              };
+              hasUpdates = true;
+            }
           }
         } catch (error) {
           console.error(`Failed to check status for job ${job.id}:`, error);
           
-          // Mark job as failed if we can't reach the API
+          // For network errors, remove jobs that consistently fail
           const jobIndex = history.findIndex((item: any) => item.id === job.id);
           if (jobIndex !== -1) {
-            history[jobIndex] = {
-              ...history[jobIndex],
-              status: 'failed',
-              error: 'Unable to connect to server',
-              lastUpdated: new Date().toISOString()
-            };
-            hasUpdates = true;
+            const job = history[jobIndex];
+            const lastUpdated = job.lastUpdated ? new Date(job.lastUpdated) : new Date(job.createdAt);
+            const hoursSinceLastUpdate = (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60);
+            
+            if (hoursSinceLastUpdate > 1) {
+              // Remove jobs that haven't been updated for over an hour
+              console.log(`Removing stale job ${job.id} that hasn't updated in ${hoursSinceLastUpdate.toFixed(1)} hours`);
+              jobsToRemove.push(job.id);
+              hasUpdates = true;
+            } else {
+              // Mark as failed for recent jobs
+              history[jobIndex] = {
+                ...history[jobIndex],
+                status: 'failed',
+                error: 'Unable to connect to server',
+                lastUpdated: new Date().toISOString()
+              };
+              hasUpdates = true;
+            }
           }
         }
       }
 
-      if (hasUpdates) {
+      // Remove jobs that should be deleted
+      if (jobsToRemove.length > 0) {
+        const filteredHistory = history.filter((item: any) => !jobsToRemove.includes(item.id));
+        localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(filteredHistory));
+        loadGalleryItems(); // Reload items to reflect updates
+      } else if (hasUpdates) {
         localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
         loadGalleryItems(); // Reload items to reflect updates
       }
@@ -152,7 +218,20 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
     }
   };
 
-  // Delete functionality removed as per requirements
+  const handleDeleteItem = (itemId: string) => {
+    try {
+      const savedItems = localStorage.getItem('pipeline-builder-generation-history');
+      if (savedItems) {
+        const history = JSON.parse(savedItems);
+        const filteredHistory = history.filter((item: any) => item.id !== itemId);
+        localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(filteredHistory));
+        loadGalleryItems(); // Reload items to reflect deletion
+        console.log(`Manually deleted item ${itemId} from gallery`);
+      }
+    } catch (error) {
+      console.error('Failed to delete gallery item:', error);
+    }
+  };
 
   const handlePreviewItem = (item: GalleryItemData) => {
     // Open item in new tab for preview
@@ -260,42 +339,43 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
         {/* Actions Bar removed - no delete functionality */}
 
         {/* Main Content */}
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-hidden">
           <div className="h-full overflow-y-auto">
-            <div className="p-6">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="text-center">
-                    <RefreshCw className="w-8 h-8 text-gray-400 animate-spin mx-auto mb-4" />
-                    <p className="text-gray-400">Loading your content...</p>
-                  </div>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <RefreshCw className="w-8 h-8 text-gray-400 animate-spin mx-auto mb-4" />
+                  <p className="text-gray-400">Loading your content...</p>
                 </div>
-              ) : items.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="bg-gray-800/50 rounded-lg p-8 max-w-md mx-auto">
-                    <FolderOpen className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-300 mb-2">No content yet</h3>
-                    <p className="text-gray-500 text-sm mb-4">
-                      Start creating personalized health content to build your library
-                    </p>
-                    {onCreateNew && (
-                      <Button
-                        onClick={onCreateNew}
-                        className="bg-purple-600 hover:bg-purple-700 text-white"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create Your First Content
-                      </Button>
-                    )}
-                  </div>
+              </div>
+            ) : items.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="bg-gray-800/50 rounded-lg p-8 max-w-md mx-auto">
+                  <FolderOpen className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-300 mb-2">No content yet</h3>
+                  <p className="text-gray-500 text-sm mb-4">
+                    Start creating personalized health content to build your library
+                  </p>
+                  {onCreateNew && (
+                    <Button
+                      onClick={onCreateNew}
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Your First Content
+                    </Button>
+                  )}
                 </div>
-              ) : (
+              </div>
+            ) : (
+              <div className="p-6">
                 <GalleryGrid
                   items={items}
                   onPreviewItem={handlePreviewItem}
+                  onDeleteItem={handleDeleteItem}
                 />
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
 

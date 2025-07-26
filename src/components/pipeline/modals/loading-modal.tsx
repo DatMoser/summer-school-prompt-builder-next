@@ -1,4 +1,5 @@
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 
 interface LoadingModalProps {
   open: boolean;
@@ -10,6 +11,9 @@ export default function LoadingModal({ open, progress, status }: LoadingModalPro
   return (
     <Dialog open={open}>
       <DialogContent className="bg-gray-800 border-gray-600 text-white max-w-md w-[90vw] sm:w-full max-h-[80vh] overflow-y-auto p-4 sm:p-6">
+        <VisuallyHidden>
+          <DialogTitle>Generating Content</DialogTitle>
+        </VisuallyHidden>
         <div className="text-center py-4">
           <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Generating Your Content</h3>

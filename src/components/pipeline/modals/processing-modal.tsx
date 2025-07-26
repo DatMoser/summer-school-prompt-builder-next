@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -23,6 +24,7 @@ interface ProcessingModalProps {
   format: 'video' | 'audio';
   evidenceData?: any;
   styleData?: any;
+  visualStylingData?: any;
   personalData?: any;
   promptText?: string;
   customApiKey?: string | null;
@@ -52,6 +54,7 @@ export default function ProcessingModal({
   format,
   evidenceData,
   styleData,
+  visualStylingData,
   personalData,
   promptText,
   customApiKey,
@@ -103,6 +106,7 @@ export default function ProcessingModal({
             prompt: promptText || 'Generate health content based on the provided data.',
             evidenceData,
             styleData,
+            visualStylingData,
             personalData,
             customApiKey,
             googleCloudCredentials: backendCredentials?.googleCloudCredentials,
@@ -440,6 +444,9 @@ export default function ProcessingModal({
         className="bg-gray-900 border-gray-700 text-white max-w-2xl w-[95vw] max-h-[90vh] p-0 overflow-hidden"
         showCloseButton={false}
       >
+        <VisuallyHidden>
+          <DialogTitle>Processing Content</DialogTitle>
+        </VisuallyHidden>
         {/* Header */}
         <div className="p-6 border-b border-gray-700 bg-gray-800/50">
           <div className="flex items-center gap-4">

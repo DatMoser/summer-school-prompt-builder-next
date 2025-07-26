@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
       prompt,
       evidenceData,
       styleData,
+      visualStylingData,
       personalData,
       customApiKey,
       googleCloudCredentials,
@@ -177,7 +178,31 @@ export async function POST(request: NextRequest) {
 
     // Add thumbnail prompt for audio
     if (format === 'audio') {
-      backendRequest.thumbnail_prompt = `Professional ${styleData?.tone || 'modern'} podcast cover design`;
+      let thumbnailPrompt = '';
+      
+      if (visualStylingData?.podcastThumbnail) {
+        const thumbnail = visualStylingData.podcastThumbnail;
+        thumbnailPrompt = `Create a ${thumbnail.designTheme || 'professional'} podcast cover design with a ${thumbnail.colorScheme || 'warm'} color scheme. `;
+        thumbnailPrompt += `Use ${thumbnail.fontStyle || 'clean'} typography in a ${thumbnail.layoutType || 'balanced'} layout. `;
+        thumbnailPrompt += `The background should be ${thumbnail.backgroundStyle || 'gradient'} style. `;
+        
+        if (thumbnail.iconStyle && thumbnail.iconStyle !== 'none') {
+          thumbnailPrompt += `Include ${thumbnail.iconStyle} icons or elements. `;
+        }
+        
+        if (visualStylingData.healthFocus) {
+          thumbnailPrompt += `The design should focus on ${visualStylingData.healthFocus}. `;
+        }
+        
+        if (visualStylingData.customPrompt) {
+          thumbnailPrompt += visualStylingData.customPrompt;
+        }
+      } else {
+        // Fallback to style data if no visual styling
+        thumbnailPrompt = `Professional ${styleData?.tone || 'modern'} podcast cover design`;
+      }
+      
+      backendRequest.thumbnail_prompt = thumbnailPrompt.trim();
     }
 
     // Add parameters for video

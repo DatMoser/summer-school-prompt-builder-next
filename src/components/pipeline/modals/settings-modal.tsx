@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface BackendCredentials {
   geminiApiKey?: string;
@@ -48,6 +48,7 @@ export default function SettingsModal({
   const [selectedService, setSelectedService] = useState(currentService);
   const [useCustomApiKey, setUseCustomApiKey] = useState(!!currentApiKey);
   const [customApiKey, setCustomApiKey] = useState(currentApiKey || '');
+  const [isCredentialsExpanded, setIsCredentialsExpanded] = useState(false);
   
   // Backend credentials state
   const [backendCredentials, setBackendCredentials] = useState<BackendCredentials>({
@@ -278,14 +279,27 @@ export default function SettingsModal({
           {/* Backend Configuration */}
           <div className="border-t border-gray-600 pt-4">
             <div className="space-y-3">
-              <Label className="text-sm font-medium text-gray-300">
-                Backend Service Credentials
-              </Label>
-              <p className="text-xs text-gray-400">
-                Required for video and audio generation via your FastAPI backend
-              </p>
+              <button
+                onClick={() => setIsCredentialsExpanded(!isCredentialsExpanded)}
+                className="flex items-center justify-between w-full text-left group"
+              >
+                <div>
+                  <Label className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors cursor-pointer">
+                    Backend Service Credentials
+                  </Label>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Required for video and audio generation via your FastAPI backend
+                  </p>
+                </div>
+                {isCredentialsExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+                )}
+              </button>
               
-              <div className="grid grid-cols-1 gap-4">
+              {isCredentialsExpanded && (
+                <div className="grid grid-cols-1 gap-4 mt-4 pl-2 border-l-2 border-gray-600">
                 <div>
                   <Label htmlFor="gcp-project" className="text-sm text-gray-400">
                     Google Cloud Project ID
@@ -355,7 +369,8 @@ export default function SettingsModal({
                     Paste your service account JSON here for video generation
                   </p>
                 </div>
-              </div>
+                </div>
+              )}
             </div>
           </div>
 

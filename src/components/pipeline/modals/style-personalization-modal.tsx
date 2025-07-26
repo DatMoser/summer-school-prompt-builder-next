@@ -11,6 +11,7 @@ interface StylePersonalizationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   customApiKey?: string | null;
+  existingData?: StyleData | null;
   onDataUpdate: (data: StyleData) => void;
 }
 
@@ -37,14 +38,24 @@ export default function StylePersonalizationModal({
   open,
   onOpenChange,
   customApiKey,
+  existingData,
   onDataUpdate
 }: StylePersonalizationModalProps) {
-  const [styleData, setStyleData] = useState<StyleData>(getEmptyStyle());
+  const [styleData, setStyleData] = useState<StyleData>(existingData || getEmptyStyle());
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [keyPhrasesText, setKeyPhrasesText] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Update local state when existingData changes (when modal opens with saved data)
+  useEffect(() => {
+    if (existingData) {
+      setStyleData(existingData);
+    } else {
+      setStyleData(getEmptyStyle());
+    }
+  }, [existingData]);
 
   // Convert key phrases array to text for editing
   useEffect(() => {
@@ -164,7 +175,7 @@ export default function StylePersonalizationModal({
 
   const handleCancel = () => {
     onOpenChange(false);
-    setStyleData(getEmptyStyle());
+    setStyleData(existingData || getEmptyStyle());
     setAiPrompt('');
   };
 

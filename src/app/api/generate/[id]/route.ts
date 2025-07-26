@@ -40,8 +40,9 @@ export async function GET(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout for status checks
     
+    let backendResponse: Response;
     try {
-      const backendResponse = await fetch(`${BACKEND_URL}${endpoint}`, {
+      backendResponse = await fetch(`${BACKEND_URL}${endpoint}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -161,10 +162,10 @@ export async function GET(
 // Allow cancelling a job (if the MCP service supports it)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const jobId = params.id;
+    const { id: jobId } = await params;
 
     if (!jobId) {
       return NextResponse.json(

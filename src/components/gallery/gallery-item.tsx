@@ -10,7 +10,8 @@ import {
   Clock,
   Calendar,
   FileIcon,
-  ExternalLink
+  ExternalLink,
+  Trash2
 } from 'lucide-react';
 import AudioPlayer from './audio-player';
 
@@ -41,9 +42,10 @@ export interface GalleryItemData {
 interface GalleryItemProps {
   item: GalleryItemData;
   onPreview?: (item: GalleryItemData) => void;
+  onDelete?: (itemId: string) => void;
 }
 
-export default function GalleryItem({ item, onPreview }: GalleryItemProps) {
+export default function GalleryItem({ item, onPreview, onDelete }: GalleryItemProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   const formatDuration = (seconds: number) => {
@@ -96,7 +98,11 @@ export default function GalleryItem({ item, onPreview }: GalleryItemProps) {
     }
   };
 
-  // Delete functionality removed as per requirements
+  const handleDelete = () => {
+    if (onDelete && window.confirm(`Are you sure you want to delete "${item.title}"?`)) {
+      onDelete(item.id);
+    }
+  };
 
   return (
     <Card 
@@ -239,6 +245,19 @@ export default function GalleryItem({ item, onPreview }: GalleryItemProps) {
                   View
                 </Button>
               </>
+            )}
+            
+            {/* Delete button for failed jobs or when explicitly enabled */}
+            {(item.status === 'failed' || item.status === 'started' || item.status === 'queued') && onDelete && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDelete}
+                className="bg-red-600/20 border-red-400/30 text-red-300 hover:bg-red-600/30 text-xs"
+                title={`Delete ${item.title}`}
+              >
+                <Trash2 className="w-3 h-3" />
+              </Button>
             )}
           </div>
         </div>

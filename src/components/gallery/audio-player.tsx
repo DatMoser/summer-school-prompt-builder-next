@@ -1,11 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
 import { 
   Play, 
   Pause, 
-  Volume2, 
-  VolumeX,
   ExternalLink 
 } from 'lucide-react';
 
@@ -20,8 +17,6 @@ export default function AudioPlayer({ src, title, onFallbackToTab, className }: 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
   
@@ -84,35 +79,15 @@ export default function AudioPlayer({ src, title, onFallbackToTab, className }: 
     }
   };
 
-  const handleSeek = (value: number[]) => {
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const audio = audioRef.current;
-    if (audio && !isNaN(duration)) {
-      const newTime = (value[0] / 100) * duration;
-      audio.currentTime = newTime;
+    if (audio && !isNaN(duration) && duration > 0) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const percent = clickX / rect.width;
+      const newTime = percent * duration;
+      audio.currentTime = Math.max(0, Math.min(newTime, duration));
       setCurrentTime(newTime);
-    }
-  };
-
-  const handleVolumeChange = (value: number[]) => {
-    const audio = audioRef.current;
-    const newVolume = value[0] / 100;
-    setVolume(newVolume);
-    setIsMuted(newVolume === 0);
-    if (audio) {
-      audio.volume = newVolume;
-    }
-  };
-
-  const toggleMute = () => {
-    const audio = audioRef.current;
-    if (audio) {
-      if (isMuted) {
-        audio.volume = volume;
-        setIsMuted(false);
-      } else {
-        audio.volume = 0;
-        setIsMuted(true);
-      }
     }
   };
 
@@ -151,75 +126,57 @@ export default function AudioPlayer({ src, title, onFallbackToTab, className }: 
   }
 
   return (
-    <div className={`bg-gray-800 border border-gray-700 rounded-lg p-4 ${className}`}>
+    <div className={`bg-gradient-to-r from-gray-800 to-gray-750 border border-gray-600 rounded-xl p-4 shadow-lg ${className}`}>
       <audio
         ref={audioRef}
         src={src}
         preload="metadata"
       />
       
-      <div className="space-y-3">
+      <div className="space-y-4">
         {/* Title */}
-        <div className="text-sm text-gray-300 font-medium truncate" title={title}>
+        <div className="text-sm text-gray-100 font-medium truncate" title={title}>
           {title}
         </div>
         
         {/* Progress Bar */}
-        <div className="space-y-1">
-          <Slider
-            value={[progress]}
-            onValueChange={handleSeek}
-            max={100}
-            step={0.1}
-            className="w-full"
-            disabled={isLoading || hasError}
-          />
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(duration)}</span>
+        <div className="space-y-2">
+          <div 
+            className="relative w-full h-2 bg-gray-700 rounded-full cursor-pointer overflow-hidden"
+            onClick={handleSeek}
+          >
+            <div 
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-150 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+            <div 
+              className="absolute top-1/2 transform -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md border-2 border-blue-500 transition-all duration-150 ease-out"
+              style={{ left: `calc(${progress}% - 6px)` }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-gray-400">
+            <span className="font-mono">{formatTime(currentTime)}</span>
+            <span className="font-mono">{formatTime(duration)}</span>
           </div>
         </div>
         
         {/* Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between">
           {/* Play/Pause Button */}
           <Button
             size="sm"
             onClick={togglePlayPause}
             disabled={isLoading}
-            className="bg-blue-600 hover:bg-blue-700 text-white p-2"
+            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white w-10 h-10 rounded-full p-0 shadow-lg transition-all duration-200 transform hover:scale-105"
           >
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : isPlaying ? (
               <Pause className="w-4 h-4" />
             ) : (
-              <Play className="w-4 h-4" />
+              <Play className="w-4 h-4 ml-0.5" />
             )}
           </Button>
-          
-          {/* Volume Control */}
-          <div className="flex items-center gap-2 flex-1">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={toggleMute}
-              className="p-1 text-gray-400 hover:text-gray-300"
-            >
-              {isMuted || volume === 0 ? (
-                <VolumeX className="w-4 h-4" />
-              ) : (
-                <Volume2 className="w-4 h-4" />
-              )}
-            </Button>
-            <Slider
-              value={[isMuted ? 0 : volume * 100]}
-              onValueChange={handleVolumeChange}
-              max={100}
-              step={1}
-              className="w-20"
-            />
-          </div>
           
           {/* Fallback Button */}
           {onFallbackToTab && (
@@ -227,10 +184,11 @@ export default function AudioPlayer({ src, title, onFallbackToTab, className }: 
               size="sm"
               variant="outline"
               onClick={onFallbackToTab}
-              className="bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 p-2"
+              className="bg-gray-700/50 border-gray-500 text-gray-300 hover:bg-gray-600/50 hover:text-white px-3 py-1.5 rounded-lg transition-all duration-200"
               title="Open in new tab"
             >
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-3 h-3 mr-1" />
+              <span className="text-xs">Open</span>
             </Button>
           )}
         </div>
