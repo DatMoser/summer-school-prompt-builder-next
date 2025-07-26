@@ -114,70 +114,92 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build credentials object with environment variable fallbacks
+    // Build credentials object - only for video generation or when explicitly provided
     const credentials: any = {};
     
-    // TEMPORARY WORKAROUND: Backend currently requires Gemini API key for all operations
-    // This should be fixed in the backend to not require Gemini for audio-only generation
-    const geminiKey = customApiKey || process.env.GEMINI_API_KEY;
-    if (geminiKey) {
+    // For video generation, we need credentials
+    if (format === 'video') {
+      const geminiKey = customApiKey || process.env.GEMINI_API_KEY;
+      if (!geminiKey) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Gemini API key is required for video generation. Please provide it in Settings or set GEMINI_API_KEY environment variable.' 
+          },
+          { status: 400 }
+        );
+      }
       credentials.gemini_api_key = geminiKey;
-    } else if (format === 'video') {
-      // Video generation absolutely requires Gemini API key
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Gemini API key is required for video generation. Please provide it in Settings or set GEMINI_API_KEY environment variable.' 
-        },
-        { status: 400 }
-      );
+      
+      // Add other video-required credentials
+      if (googleCloudCredentials) credentials.google_cloud_credentials = googleCloudCredentials;
+      if (googleCloudProject) credentials.google_cloud_project = googleCloudProject;
+      if (vertexAiRegion) credentials.vertex_ai_region = vertexAiRegion;
+      if (gcsBucket) credentials.gcs_bucket = gcsBucket;
+      
+      // Add environment variable fallbacks for video
+      if (!credentials.google_cloud_project && process.env.GOOGLE_CLOUD_PROJECT) {
+        credentials.google_cloud_project = process.env.GOOGLE_CLOUD_PROJECT;
+      }
+      if (!credentials.vertex_ai_region && process.env.VERTEX_AI_REGION) {
+        credentials.vertex_ai_region = process.env.VERTEX_AI_REGION;
+      }
+      if (!credentials.gcs_bucket && process.env.GCS_BUCKET) {
+        credentials.gcs_bucket = process.env.GCS_BUCKET;
+      }
     }
     
-    // Add other credentials if provided
-    if (googleCloudCredentials) credentials.google_cloud_credentials = googleCloudCredentials;
-    if (googleCloudProject) credentials.google_cloud_project = googleCloudProject;
-    if (vertexAiRegion) credentials.vertex_ai_region = vertexAiRegion;
-    if (gcsBucket) credentials.gcs_bucket = gcsBucket;
-    if (elevenlabsApiKey) credentials.elevenlabs_api_key = elevenlabsApiKey;
-    
-    // Add environment variable fallbacks for other credentials
-    if (!credentials.elevenlabs_api_key && process.env.ELEVENLABS_API_KEY) {
-      credentials.elevenlabs_api_key = process.env.ELEVENLABS_API_KEY;
-    }
-    if (!credentials.google_cloud_project && process.env.GOOGLE_CLOUD_PROJECT) {
-      credentials.google_cloud_project = process.env.GOOGLE_CLOUD_PROJECT;
-    }
-    if (!credentials.vertex_ai_region && process.env.VERTEX_AI_REGION) {
-      credentials.vertex_ai_region = process.env.VERTEX_AI_REGION;
-    }
-    if (!credentials.gcs_bucket && process.env.GCS_BUCKET) {
-      credentials.gcs_bucket = process.env.GCS_BUCKET;
+    // For audio generation, only add credentials if explicitly provided (backend uses env vars)
+    if (format === 'audio') {
+      // Only add custom API key if provided
+      const geminiKey = customApiKey || process.env.GEMINI_API_KEY;
+      if (geminiKey && customApiKey) { // Only add if custom key provided, not env var
+        credentials.gemini_api_key = geminiKey;
+      }
+      
+      // Only add ElevenLabs key if explicitly provided
+      if (elevenlabsApiKey) {
+        credentials.elevenlabs_api_key = elevenlabsApiKey;
+      }
     }
 
     // Build backend request
-    const backendRequest: BackendGenerationRequest = {
+    const backendRequest: any = {
       mode: format,
       prompt: enhancedPrompt,
       generate_thumbnail: format === 'audio', // Generate thumbnails for audio content
-      thumbnail_prompt: format === 'audio' ? `Professional ${styleData?.tone || 'modern'} podcast cover design` : undefined,
-      credentials,
-      parameters: {
-        model: format === 'video' ? 'veo-3.0-generate-preview' : undefined,
-        durationSeconds: format === 'video' ? 8 : undefined, // 8s video as per backend docs
-        aspectRatio: format === 'video' ? '16:9' : undefined,
-        generateAudio: format === 'video',
-        sampleCount: 1
-      }
     };
+
+    // Only add credentials if we have any (for video or explicit audio credentials)
+    if (Object.keys(credentials).length > 0) {
+      backendRequest.credentials = credentials;
+    }
+
+    // Add thumbnail prompt for audio
+    if (format === 'audio') {
+      backendRequest.thumbnail_prompt = `Professional ${styleData?.tone || 'modern'} podcast cover design`;
+    }
+
+    // Add parameters for video
+    if (format === 'video') {
+      backendRequest.parameters = {
+        model: 'veo-3.0-generate-preview',
+        durationSeconds: 8, // 8s video as per backend docs
+        aspectRatio: '16:9',
+        generateAudio: true,
+        sampleCount: 1
+      };
+    }
 
     // Log the request for debugging
     console.log(`Generating ${format} content with request:`, {
       mode: backendRequest.mode,
-      credentials: Object.keys(backendRequest.credentials).reduce((acc, key) => {
+      generate_thumbnail: backendRequest.generate_thumbnail,
+      credentials: backendRequest.credentials ? Object.keys(backendRequest.credentials).reduce((acc, key) => {
         acc[key] = key.includes('key') || key.includes('credentials') ? '[REDACTED]' : backendRequest.credentials[key];
         return acc;
-      }, {} as any),
-      parameters: backendRequest.parameters
+      }, {} as any) : 'none',
+      parameters: backendRequest.parameters || 'none'
     });
 
     // Make request to backend service with timeout

@@ -12,6 +12,7 @@ import {
   FileIcon,
   ExternalLink
 } from 'lucide-react';
+import AudioPlayer from './audio-player';
 
 export interface GalleryItemData {
   id: string;
@@ -139,8 +140,8 @@ export default function GalleryItem({ item, onPreview }: GalleryItemProps) {
             </Badge>
           </div>
 
-          {/* Play Button Overlay */}
-          {(item.status === 'completed' || item.status === 'finished') && isHovered && (
+          {/* Play Button Overlay for Video */}
+          {item.format === 'video' && (item.status === 'completed' || item.status === 'finished') && isHovered && (
             <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
               <Button
                 size="sm"
@@ -160,6 +161,18 @@ export default function GalleryItem({ item, onPreview }: GalleryItemProps) {
           <h3 className="font-medium text-white text-sm mb-2 line-clamp-2">
             {item.title}
           </h3>
+
+          {/* Audio Player for audio content */}
+          {item.format === 'audio' && (item.status === 'completed' || item.status === 'finished') && item.downloadUrl && (
+            <div className="mb-4">
+              <AudioPlayer
+                src={item.downloadUrl}
+                title={item.title}
+                onFallbackToTab={handlePreview}
+                className="bg-gray-900/50 border-gray-600"
+              />
+            </div>
+          )}
 
           {/* Metadata */}
           <div className="space-y-2 text-xs text-gray-400">

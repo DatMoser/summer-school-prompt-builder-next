@@ -316,7 +316,11 @@ export default function PipelineBuilder() {
       }
 
       localStorage.setItem(STORAGE_KEYS.selectedService, selectedService);
-      if (customApiKey) localStorage.setItem(STORAGE_KEYS.customApiKey, customApiKey);
+      if (customApiKey) {
+        localStorage.setItem(STORAGE_KEYS.customApiKey, customApiKey);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.customApiKey);
+      }
       localStorage.setItem(STORAGE_KEYS.promptText, promptText);
       localStorage.setItem(STORAGE_KEYS.backendCredentials, JSON.stringify(backendCredentials));
 
@@ -843,8 +847,8 @@ export default function PipelineBuilder() {
       // Reset generation state
       setCurrentGenerationTitle('');
       
-      // Show success message
-      alert(`"${newItem.title}" generated successfully! Added to your gallery.`);
+      // Open gallery instead of showing alert
+      setGalleryModalOpen(true);
       
     } catch (error) {
       console.error('Failed to save to gallery:', error);
@@ -1060,6 +1064,8 @@ export default function PipelineBuilder() {
         currentApiKey={customApiKey}
         onBackendCredentialsUpdate={setBackendCredentials}
         currentBackendCredentials={backendCredentials}
+        healthStatus={backendHealthStatus}
+        onHealthCheck={checkBackendHealth}
         onResetStorage={() => {
           clearLocalStorage();
           // Reset all state to initial values

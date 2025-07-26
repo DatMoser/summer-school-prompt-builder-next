@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,9 @@ interface SettingsModalProps {
   onBackendCredentialsUpdate?: (credentials: BackendCredentials) => void;
   currentBackendCredentials?: BackendCredentials;
   onResetStorage?: () => void;
+  // Health check props to share with parent
+  healthStatus?: 'checking' | 'healthy' | 'unhealthy' | 'unknown';
+  onHealthCheck?: () => Promise<void>;
 }
 
 export default function SettingsModal({ 
@@ -38,7 +41,9 @@ export default function SettingsModal({
   currentApiKey,
   onBackendCredentialsUpdate,
   currentBackendCredentials,
-  onResetStorage
+  onResetStorage,
+  healthStatus = 'unknown',
+  onHealthCheck
 }: SettingsModalProps) {
   const [selectedService, setSelectedService] = useState(currentService);
   const [useCustomApiKey, setUseCustomApiKey] = useState(!!currentApiKey);
@@ -54,8 +59,7 @@ export default function SettingsModal({
   });
   const [gcCredentialsJson, setGcCredentialsJson] = useState('');
   
-  // Health check state
-  const [healthStatus, setHealthStatus] = useState<'checking' | 'healthy' | 'unhealthy' | 'unknown'>('unknown');
+  // Health check state - now managed by parent
   const [lastHealthCheck, setLastHealthCheck] = useState<Date | null>(null);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
 
@@ -103,50 +107,33 @@ export default function SettingsModal({
     onOpenChange(false);
   };
   
-  // Health check function
-  const checkBackendHealth = async () => {
-    setIsCheckingHealth(true);
-    setHealthStatus('checking');
+  // Health check function - now uses parent's function
+  const handleHealthCheck = useCallback(async () => {
+    if (!onHealthCheck) return;
     
+    setIsCheckingHealth(true);
     try {
-      // Use the Next.js API proxy to avoid CORS issues
-      const response = await fetch('/api/health', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        // Add timeout to prevent hanging
-        signal: AbortSignal.timeout(5000) // 5 second timeout
-      });
-      
-      if (response.ok) {
-        setHealthStatus('healthy');
-      } else {
-        setHealthStatus('unhealthy');
-      }
-    } catch (error) {
-      console.error('Backend health check failed:', error);
-      setHealthStatus('unhealthy');
+      await onHealthCheck();
     } finally {
       setIsCheckingHealth(false);
       setLastHealthCheck(new Date());
     }
-  };
+  }, [onHealthCheck]);
   
   // Check health when modal opens
   useEffect(() => {
-    if (open) {
-      checkBackendHealth();
+    if (open && onHealthCheck) {
+      handleHealthCheck();
     }
-  }, [open]);
+  }, [open, onHealthCheck, handleHealthCheck]);
   
   // Auto-refresh health check every 30 seconds when modal is open
   useEffect(() => {
-    if (!open) return;
+    if (!open || !onHealthCheck) return;
     
-    const interval = setInterval(checkBackendHealth, 30000);
+    const interval = setInterval(handleHealthCheck, 30000);
     return () => clearInterval(interval);
-  }, [open]);
+  }, [open, onHealthCheck, handleHealthCheck]);
   
   const getHealthStatusDisplay = () => {
     switch (healthStatus) {
@@ -211,7 +198,7 @@ export default function SettingsModal({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={checkBackendHealth}
+                onClick={handleHealthCheck}
                 disabled={isCheckingHealth}
                 className="bg-gray-600 border-gray-500 text-gray-300 hover:bg-gray-500 text-xs px-2 py-1"
               >

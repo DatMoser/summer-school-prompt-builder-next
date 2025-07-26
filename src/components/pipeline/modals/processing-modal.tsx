@@ -4,24 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
   Loader2,
-  FileText,
-  Palette,
-  User,
-  Video,
-  Headphones,
   CheckCircle,
   XCircle,
   Download,
   RefreshCw
 } from 'lucide-react';
 
-interface ProcessingStep {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
+interface ProgressInfo {
   progress: number;
-  status: 'pending' | 'active' | 'completed' | 'error';
+  currentStep: string;
+  message?: string;
+  status: 'queued' | 'started' | 'finished' | 'failed';
 }
 
 interface ProcessingModalProps {
@@ -66,97 +59,15 @@ export default function ProcessingModal({
   onComplete,
   onCancel
 }: ProcessingModalProps) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [overallProgress, setOverallProgress] = useState(0);
-  const [status, setStatus] = useState<'queued' | 'started' | 'finished' | 'failed'>('queued');
+  const [progressInfo, setProgressInfo] = useState<ProgressInfo>({
+    progress: 0,
+    currentStep: 'Initializing...',
+    status: 'queued'
+  });
   const [result, setResult] = useState<GenerationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [canCancel, setCanCancel] = useState(true);
 
-  // Define processing steps based on format
-  const getSteps = (format: 'video' | 'audio'): ProcessingStep[] => {
-    if (format === 'video') {
-      return [
-        {
-          id: 'evidence',
-          title: 'Analyzing Evidence',
-          description: 'Processing evidence-based guidelines and research data',
-          icon: FileText,
-          progress: 0,
-          status: 'pending'
-        },
-        {
-          id: 'style',
-          title: 'Applying Communication Style',
-          description: 'Personalizing content with your communication preferences',
-          icon: Palette,
-          progress: 0,
-          status: 'pending'
-        },
-        {
-          id: 'personal',
-          title: 'Integrating Personal Data',
-          description: 'Customizing content with your health metrics',
-          icon: User,
-          progress: 0,
-          status: 'pending'
-        },
-        {
-          id: 'generate',
-          title: 'Generating Video Content',
-          description: 'Creating your personalized health video',
-          icon: Video,
-          progress: 0,
-          status: 'pending'
-        }
-      ];
-    } else {
-      return [
-        {
-          id: 'evidence',
-          title: 'Analyzing Evidence',
-          description: 'Processing evidence-based guidelines and research data',
-          icon: FileText,
-          progress: 0,
-          status: 'pending'
-        },
-        {
-          id: 'style',
-          title: 'Applying Communication Style',
-          description: 'Personalizing content with your communication preferences',
-          icon: Palette,
-          progress: 0,
-          status: 'pending'
-        },
-        {
-          id: 'personal',
-          title: 'Integrating Personal Data',
-          description: 'Customizing content with your health metrics',
-          icon: User,
-          progress: 0,
-          status: 'pending'
-        },
-        {
-          id: 'script',
-          title: 'Generating Script',
-          description: 'Creating personalized content script',
-          icon: FileText,
-          progress: 0,
-          status: 'pending'
-        },
-        {
-          id: 'audio',
-          title: 'Converting to Audio',
-          description: 'Generating high-quality audio content',
-          icon: Headphones,
-          progress: 0,
-          status: 'pending'
-        }
-      ];
-    }
-  };
-
-  const [steps, setSteps] = useState<ProcessingStep[]>(getSteps(format));
 
   // Real processing with API calls
   useEffect(() => {
@@ -170,14 +81,13 @@ export default function ProcessingModal({
 
     const startProcessing = async () => {
       try {
-        setStatus('started');
-        setCurrentStep(0);
-        setOverallProgress(0);
+        setProgressInfo({
+          progress: 0,
+          currentStep: 'Starting generation...',
+          status: 'started'
+        });
         setError(null);
         setCanCancel(true);
-
-        // Start first step
-        updateStepStatus(0, 'active');
 
         // Prepare API request
         const headers: Record<string, string> = {
@@ -306,7 +216,11 @@ export default function ProcessingModal({
             if (retryCount >= maxRetries) {
               console.error('Max polling retries exceeded, stopping');
               clearInterval(pollInterval);
-              setStatus('failed');
+              setProgressInfo({
+                progress: 0,
+                currentStep: 'Connection failed',
+                status: 'failed'
+              });
               setError('Failed to check generation status');
               setCanCancel(false);
             }
@@ -316,12 +230,13 @@ export default function ProcessingModal({
 
       } catch (error: any) {
         console.error('Processing error:', error);
-        setStatus('failed');
+        setProgressInfo({
+          progress: 0,
+          currentStep: 'Failed to start',
+          status: 'failed'
+        });
         setError(error.message || 'Failed to start generation');
         setCanCancel(false);
-
-        // Mark first step as error
-        updateStepStatus(0, 'error');
 
         // Save error to gallery if we have a job ID
         try {
@@ -347,8 +262,13 @@ export default function ProcessingModal({
 
     // Helper function to handle progress updates from both WebSocket and polling
     const handleProgressUpdate = (statusData: any, jobId: string) => {
-      // Update progress based on API response
-      setOverallProgress(statusData.progress || 0);
+      // Update progress info directly from server response
+      setProgressInfo({
+        progress: statusData.progress || 0,
+        currentStep: statusData.current_step || statusData.currentStep || 'Processing...',
+        message: statusData.message,
+        status: statusData.status || 'started'
+      });
 
       // Update gallery item with current progress
       try {
@@ -361,7 +281,7 @@ export default function ProcessingModal({
               ...history[itemIndex],
               progress: statusData.progress || 0,
               status: statusData.status || 'started',
-              currentStep: statusData.currentStep || 'Processing',
+              currentStep: statusData.current_step || statusData.currentStep || 'Processing',
               message: statusData.message,
               lastUpdated: new Date().toISOString()
             };
@@ -372,40 +292,24 @@ export default function ProcessingModal({
         console.error('Failed to update gallery item:', error);
       }
 
-      // Update steps based on progress
-      const progressSteps = Math.floor((statusData.progress || 0) / (100 / steps.length));
-      if (progressSteps > stepIndex) {
-        // Complete previous steps and start next
-        for (let i = stepIndex; i < progressSteps && i < steps.length; i++) {
-          updateStepStatus(i, 'completed');
-        }
-        if (progressSteps < steps.length) {
-          updateStepStatus(progressSteps, 'active');
-          setCurrentStep(progressSteps);
-        }
-        stepIndex = progressSteps;
-      }
-
       if (statusData.status === 'finished') {
         if (pollInterval) clearInterval(pollInterval);
         if (websocket) websocket.close();
 
-        // Complete all steps
-        for (let i = 0; i < steps.length; i++) {
-          updateStepStatus(i, 'completed');
-        }
-
-        setStatus('finished');
-        setOverallProgress(100);
+        setProgressInfo({
+          progress: 100,
+          currentStep: 'Completed',
+          status: 'finished'
+        });
         setCanCancel(false);
 
         const result: GenerationResult = {
           id: jobId,
-          downloadUrl: statusData.downloadUrl || '',
-          thumbnailUrl: statusData.thumbnailUrl,
+          downloadUrl: statusData.downloadUrl || statusData.download_url || '',
+          thumbnailUrl: statusData.thumbnailUrl || statusData.thumbnail_url,
           format,
-          duration: statusData.duration || (format === 'video' ? 8 : 180), // Backend uses 8s for video
-          fileSize: statusData.fileSize || (format === 'video' ? 25600000 : 5120000)
+          duration: statusData.duration || (format === 'video' ? 8 : 180),
+          fileSize: statusData.fileSize || statusData.file_size || (format === 'video' ? 25600000 : 5120000)
         };
         setResult(result);
 
@@ -419,10 +323,10 @@ export default function ProcessingModal({
               history[itemIndex] = {
                 ...history[itemIndex],
                 status: 'finished',
-                downloadUrl: statusData.downloadUrl || '',
-                thumbnailUrl: statusData.thumbnailUrl,
-                duration: statusData.duration || (format === 'video' ? 8 : 180), // Backend uses 8s for video
-                fileSize: statusData.fileSize || (format === 'video' ? 25600000 : 5120000),
+                downloadUrl: statusData.downloadUrl || statusData.download_url || '',
+                thumbnailUrl: statusData.thumbnailUrl || statusData.thumbnail_url,
+                duration: statusData.duration || (format === 'video' ? 8 : 180),
+                fileSize: statusData.fileSize || statusData.file_size || (format === 'video' ? 25600000 : 5120000),
                 progress: 100,
                 currentStep: 'Completed',
                 lastUpdated: new Date().toISOString()
@@ -437,7 +341,12 @@ export default function ProcessingModal({
       } else if (statusData.status === 'failed') {
         if (pollInterval) clearInterval(pollInterval);
         if (websocket) websocket.close();
-        setStatus('failed');
+        
+        setProgressInfo({
+          progress: statusData.progress || 0,
+          currentStep: 'Failed',
+          status: 'failed'
+        });
         setError(statusData.error || statusData.message || 'Generation failed');
         setCanCancel(false);
 
@@ -474,16 +383,6 @@ export default function ProcessingModal({
     };
   }, [open, format, promptText, evidenceData, styleData, personalData, customApiKey, backendCredentials]);
 
-  const updateStepStatus = (stepIndex: number, status: ProcessingStep['status']) => {
-    setSteps(prevSteps =>
-      prevSteps.map((step, index) =>
-        index === stepIndex
-          ? { ...step, status, progress: status === 'completed' ? 100 : step.progress }
-          : step
-      )
-    );
-  };
-
   const handleCancel = () => {
     if (onCancel) {
       onCancel();
@@ -499,17 +398,18 @@ export default function ProcessingModal({
   };
 
   const handleRetry = () => {
-    setStatus('queued');
-    setCurrentStep(0);
-    setOverallProgress(0);
+    setProgressInfo({
+      progress: 0,
+      currentStep: 'Initializing...',
+      status: 'queued'
+    });
     setError(null);
     setResult(null);
     setCanCancel(true);
-    setSteps(getSteps(format));
   };
 
   const getStatusIcon = () => {
-    switch (status) {
+    switch (progressInfo.status) {
       case 'finished':
         return <CheckCircle className="w-8 h-8 text-emerald-400" />;
       case 'failed':
@@ -520,7 +420,7 @@ export default function ProcessingModal({
   };
 
   const getStatusMessage = () => {
-    switch (status) {
+    switch (progressInfo.status) {
       case 'queued':
         return 'Preparing to generate your content...';
       case 'started':
@@ -552,26 +452,26 @@ export default function ProcessingModal({
             </div>
           </div>
 
-          {status === 'started' && (
+          {progressInfo.status === 'started' && (
             <div className="mt-4">
               <div className="flex justify-between text-sm text-gray-400 mb-2">
                 <span>Overall Progress</span>
-                <span>{Math.round(overallProgress)}%</span>
+                <span>{Math.round(progressInfo.progress)}%</span>
               </div>
-              <Progress value={overallProgress} className="h-2" />
+              <Progress value={progressInfo.progress} className="h-2" />
             </div>
           )}
         </div>
 
         {/* Content */}
         <div className="flex-1 p-6 overflow-y-auto">
-          {status === 'failed' && error && (
+          {progressInfo.status === 'failed' && error && (
             <div className="bg-red-500/10 border border-red-400/20 rounded-lg p-4 mb-6">
               <p className="text-red-400 text-sm">{error}</p>
             </div>
           )}
 
-          {status === 'finished' && result && (
+          {progressInfo.status === 'finished' && result && (
             <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-lg p-4 mb-6">
               <h3 className="text-emerald-400 font-medium mb-2">Content Generated Successfully!</h3>
               <div className="text-sm text-gray-300 space-y-1">
@@ -586,70 +486,73 @@ export default function ProcessingModal({
             </div>
           )}
 
-          {/* Processing Steps */}
+          {/* Current Processing Step */}
           <div className="space-y-4">
-            {steps.map((step, index) => {
-              const Icon = step.icon;
-              return (
-                <div
-                  key={step.id}
-                  className={`flex items-start gap-4 p-4 rounded-lg border transition-all duration-300 ${step.status === 'active'
-                      ? 'bg-blue-500/10 border-blue-400/30'
-                      : step.status === 'completed'
-                        ? 'bg-emerald-500/10 border-emerald-400/30'
-                        : step.status === 'error'
-                          ? 'bg-red-500/10 border-red-400/30'
-                          : 'bg-gray-800/30 border-gray-700/30'
-                    }`}
-                >
-                  <div className={`flex-shrink-0 p-2 rounded-lg ${step.status === 'active'
-                      ? 'bg-blue-500/20'
-                      : step.status === 'completed'
-                        ? 'bg-emerald-500/20'
-                        : step.status === 'error'
-                          ? 'bg-red-500/20'
-                          : 'bg-gray-700/30'
-                    }`}>
-                    {step.status === 'active' ? (
-                      <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-                    ) : step.status === 'completed' ? (
-                      <CheckCircle className="w-5 h-5 text-emerald-400" />
-                    ) : step.status === 'error' ? (
-                      <XCircle className="w-5 h-5 text-red-400" />
-                    ) : (
-                      <Icon className="w-5 h-5 text-gray-500" />
-                    )}
-                  </div>
+            <div
+              className={`flex items-start gap-4 p-4 rounded-lg border transition-all duration-300 ${
+                progressInfo.status === 'started'
+                  ? 'bg-blue-500/10 border-blue-400/30'
+                  : progressInfo.status === 'finished'
+                    ? 'bg-emerald-500/10 border-emerald-400/30'
+                    : progressInfo.status === 'failed'
+                      ? 'bg-red-500/10 border-red-400/30'
+                      : 'bg-gray-800/30 border-gray-700/30'
+              }`}
+            >
+              <div className={`flex-shrink-0 p-2 rounded-lg ${
+                progressInfo.status === 'started'
+                  ? 'bg-blue-500/20'
+                  : progressInfo.status === 'finished'
+                    ? 'bg-emerald-500/20'
+                    : progressInfo.status === 'failed'
+                      ? 'bg-red-500/20'
+                      : 'bg-gray-700/30'
+              }`}>
+                {progressInfo.status === 'started' ? (
+                  <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                ) : progressInfo.status === 'finished' ? (
+                  <CheckCircle className="w-5 h-5 text-emerald-400" />
+                ) : progressInfo.status === 'failed' ? (
+                  <XCircle className="w-5 h-5 text-red-400" />
+                ) : (
+                  <Loader2 className="w-5 h-5 text-gray-500" />
+                )}
+              </div>
 
-                  <div className="flex-1 min-w-0">
-                    <h4 className={`font-medium text-sm ${step.status === 'active'
-                        ? 'text-blue-400'
-                        : step.status === 'completed'
-                          ? 'text-emerald-400'
-                          : step.status === 'error'
-                            ? 'text-red-400'
-                            : 'text-gray-400'
-                      }`}>
-                      {step.title}
-                    </h4>
-                    <p className="text-xs text-gray-500 mt-1">{step.description}</p>
+              <div className="flex-1 min-w-0">
+                <h4 className={`font-medium text-sm ${
+                  progressInfo.status === 'started'
+                    ? 'text-blue-400'
+                    : progressInfo.status === 'finished'
+                      ? 'text-emerald-400'
+                      : progressInfo.status === 'failed'
+                        ? 'text-red-400'
+                        : 'text-gray-400'
+                }`}>
+                  {progressInfo.currentStep}
+                </h4>
+                {progressInfo.message && (
+                  <p className="text-xs text-gray-500 mt-1">{progressInfo.message}</p>
+                )}
 
-                    {step.status === 'active' && step.progress > 0 && (
-                      <div className="mt-2">
-                        <Progress value={step.progress} className="h-1" />
-                      </div>
-                    )}
+                {progressInfo.status === 'started' && progressInfo.progress > 0 && (
+                  <div className="mt-2">
+                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                      <span>Progress</span>
+                      <span>{Math.round(progressInfo.progress)}%</span>
+                    </div>
+                    <Progress value={progressInfo.progress} className="h-1" />
                   </div>
-                </div>
-              );
-            })}
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Footer */}
         <div className="p-6 border-t border-gray-700 bg-gray-800/50">
           <div className="flex gap-3 justify-end">
-            {status === 'failed' && (
+            {progressInfo.status === 'failed' && (
               <Button
                 variant="outline"
                 onClick={handleRetry}
@@ -660,7 +563,7 @@ export default function ProcessingModal({
               </Button>
             )}
 
-            {status === 'finished' && result && (
+            {progressInfo.status === 'finished' && result && (
               <>
                 <Button
                   variant="outline"
@@ -679,7 +582,7 @@ export default function ProcessingModal({
               </>
             )}
 
-            {status !== 'finished' && canCancel && (
+            {progressInfo.status !== 'finished' && canCancel && (
               <Button
                 variant="outline"
                 onClick={handleCancel}

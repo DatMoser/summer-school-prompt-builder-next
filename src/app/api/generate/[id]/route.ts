@@ -19,10 +19,10 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const jobId = params.id;
+    const { id: jobId } = await params;
     const { searchParams } = new URL(request.url);
     const usePolling = searchParams.get('wait') === 'true';
 
