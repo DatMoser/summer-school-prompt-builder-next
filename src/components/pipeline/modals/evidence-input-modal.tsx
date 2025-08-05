@@ -227,17 +227,36 @@ export default function EvidenceInputModal({ open, onOpenChange, onDataUpdate, e
 
   const handleConfirm = () => {
     if (analysisResult) {
+      // Determine the correct content based on the selected input method
+      let finalContent = '';
+      let finalFileName = '';
+      
+      if (inputMethod === 'file' && file && analysisResult.fileName !== 'Manual Text Input') {
+        // File input is selected and active
+        finalContent = analysisResult.fileContent;
+        finalFileName = analysisResult.fileName;
+      } else if (inputMethod === 'text' && manualText.trim()) {
+        // Text input is selected and has content
+        finalContent = manualText.trim();
+        finalFileName = 'Manual Text Input';
+      } else if (analysisResult.fileContent) {
+        // Fallback to analysis result
+        finalContent = analysisResult.fileContent;
+        finalFileName = analysisResult.fileName;
+      }
+
       const evidenceData: EvidenceData = {
-        fileName: analysisResult.fileName || (file ? file.name : 'Manual Text Input'),
-        fileContent: analysisResult.fileContent || '',
-        filePath: analysisResult.filePath || '',
+        fileName: finalFileName,
+        fileContent: finalContent,
+        filePath: inputMethod === 'file' ? analysisResult.filePath || '' : '',
         summary: '', // Will be generated during content creation
         extractedGuidelines: [] // Will be extracted during content creation
       };
+      
       onDataUpdate(evidenceData);
       onOpenChange(false);
 
-      // Reset state
+      // Reset state and clear the non-selected content
       setFile(null);
       setManualText('');
       setSummary('');
@@ -293,17 +312,7 @@ export default function EvidenceInputModal({ open, onOpenChange, onDataUpdate, e
             <Button
               variant={inputMethod === 'file' ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => {
-                setInputMethod('file');
-                // Clear text input when switching to file
-                if (inputMethod === 'text' && manualText) {
-                  setManualText('');
-                  setAnalysisResult(null);
-                  setSummary('');
-                  setIsProcessed(false);
-                  onDataUpdate(null as any);
-                }
-              }}
+              onClick={() => setInputMethod('file')}
               className={`flex-1 ${inputMethod === 'file' ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-gray-400 hover:text-white'}`}
             >
               <FileText className="w-4 h-4 mr-2" />
@@ -312,18 +321,7 @@ export default function EvidenceInputModal({ open, onOpenChange, onDataUpdate, e
             <Button
               variant={inputMethod === 'text' ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => {
-                setInputMethod('text');
-                // Clear file input when switching to text
-                if (inputMethod === 'file' && file) {
-                  setFile(null);
-                  setAnalysisResult(null);
-                  setSummary('');
-                  setIsProcessed(false);
-                  setError(null);
-                  onDataUpdate(null as any);
-                }
-              }}
+              onClick={() => setInputMethod('text')}
               className={`flex-1 ${inputMethod === 'text' ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-gray-400 hover:text-white'}`}
             >
               <Type className="w-4 h-4 mr-2" />

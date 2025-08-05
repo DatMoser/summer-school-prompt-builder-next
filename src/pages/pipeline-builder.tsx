@@ -529,27 +529,21 @@ export default function PipelineBuilder() {
     // console.log('💾 This should trigger auto-save...');
   }, [nodes]);
 
-  // Cleanup uploaded files when component unmounts or page is closed
+  // Save state when component unmounts or page is closed
   useEffect(() => {
-    const handleBeforeUnload = async () => {
-      try {
-        // Save state before cleanup
-        saveToLocalStorage();
-        await fetch('/api/cleanup', { method: 'POST' });
-      } catch (error) {
-        console.error('Failed to cleanup files:', error);
-      }
+    const handleBeforeUnload = () => {
+      // Save state before page unloads
+      saveToLocalStorage();
     };
 
-    // Cleanup on page unload
+    // Save on page unload
     window.addEventListener('beforeunload', handleBeforeUnload);
 
-    // Cleanup on component unmount
+    // Save on component unmount
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Save state and cleanup on unmount
+      // Save state on unmount
       saveToLocalStorage();
-      fetch('/api/cleanup', { method: 'POST' }).catch(console.error);
     };
   }, [saveToLocalStorage]);
 
