@@ -478,16 +478,9 @@ function CanvasWorkspaceContent({
         const newConnections = newPromptNode.data.connectedComponentsWithIds || [];
         const hasImmediateUpdate = newPromptNode.data._immediateUpdate;
 
-        console.log('🔍 ReactFlow prompt sync check:', {
-          currentConnections: currentConnections.map((c: any) => c.id),
-          newConnections: newConnections.map((c: any) => c.id),
-          hasImmediateUpdate,
-          forceUpdate: hasImmediateUpdate || JSON.stringify(currentConnections) !== JSON.stringify(newConnections)
-        });
 
         if (hasImmediateUpdate || JSON.stringify(currentConnections) !== JSON.stringify(newConnections)) {
           // Force update when prompt connections change or immediate update
-          console.log('🔄 FORCING ReactFlow prompt node update');
           return rfNodes;
         }
       }

@@ -1,21 +1,23 @@
+"use client";
+
 import { useState, useEffect, useCallback } from "react";
 import { Settings, Images, HelpCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import type { EvidenceData, OutputSelectorData, PersonalHealthData, PipelineConnection, PipelineNode, StyleData, VisualStylingData } from "../lib/pipeline-types";
-import CanvasWorkspace from "../components/pipeline/canvas-workspace";
-import ComponentSidebar from "../components/pipeline/component-sidebar";
-import ConfirmationModal from "../components/pipeline/modals/confirmation-modal";
-import EvidenceInputModal from "../components/pipeline/modals/evidence-input-modal";
-import LoadingModal from "../components/pipeline/modals/loading-modal";
-import OutputSelectorModal from "../components/pipeline/modals/output-selector-modal";
-import PersonalDataModal from "../components/pipeline/modals/personal-data-modal";
-import SettingsModal from "../components/pipeline/modals/settings-modal";
-import StylePersonalizationModal from "../components/pipeline/modals/style-personalization-modal";
-import VisualStylingModal from "../components/pipeline/modals/visual-styling-modal";
-import ProcessingModal, { GenerationResult } from "../components/pipeline/modals/processing-modal";
-import GalleryModal from "../components/gallery/gallery-modal";
-import TitleInputModal from "../components/pipeline/modals/title-input-modal";
-import HelpModal from "../components/pipeline/modals/help-modal";
-import { Button } from "../components/ui/button";
+import CanvasWorkspace from "./pipeline/canvas-workspace";
+import ComponentSidebar from "./pipeline/component-sidebar";
+import ConfirmationModal from "./pipeline/modals/confirmation-modal";
+import EvidenceInputModal from "./pipeline/modals/evidence-input-modal";
+import LoadingModal from "./pipeline/modals/loading-modal";
+import OutputSelectorModal from "./pipeline/modals/output-selector-modal";
+import PersonalDataModal from "./pipeline/modals/personal-data-modal";
+import SettingsModal from "./pipeline/modals/settings-modal";
+import StylePersonalizationModal from "./pipeline/modals/style-personalization-modal";
+import VisualStylingModal from "./pipeline/modals/visual-styling-modal";
+import ProcessingModal, { GenerationResult } from "./pipeline/modals/processing-modal";
+import GalleryModal from "./gallery/gallery-modal";
+import TitleInputModal from "./pipeline/modals/title-input-modal";
+import HelpModal from "./pipeline/modals/help-modal";
+import { Button } from "./ui/button";
 
 export default function PipelineBuilder() {
   // Initialize state with lazy initialization to check localStorage first
@@ -43,7 +45,7 @@ export default function PipelineBuilder() {
           configured: true,
           title: 'AI Prompt Builder',
           description: 'Build and edit AI prompt',
-          prompt: 'You are a health content generation assistant with access to MCP tools.\n\nConnect components to access their data through the MCP protocol.',
+          prompt: 'Generate content based on the following:',
           connectedComponents: [],
         },
       }
@@ -241,7 +243,7 @@ export default function PipelineBuilder() {
         console.error('❌ Error loading saved prompt text:', error);
       }
     }
-    return 'You are a health content generation assistant with access to MCP tools.\n\nConnect components to access their data through the MCP protocol.';
+    return 'Generate content based on the following:';
   });
 
   // Local storage keys
@@ -461,7 +463,7 @@ export default function PipelineBuilder() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
-      const response = await fetch('/api/health', {
+      const response = await fetch('/api/health/backend', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -797,40 +799,85 @@ export default function PipelineBuilder() {
   };
 
   const handleGenerate = () => {
-    // Check backend health first
-    if (backendHealthStatus === 'unhealthy') {
-      alert('Backend service is offline. Please check your backend connection in Settings before generating content.');
-      return;
-    }
+    const errors = [];
+    const warnings = [];
     
-    if (backendHealthStatus === 'unknown' || backendHealthStatus === 'checking') {
-      alert('Backend service status is unknown. Please wait for health check to complete or check Settings.');
-      return;
-    }
-    
-    // Check if we have a prompt node and basic requirements
+    // Check if we have a prompt node
     const promptNode = nodes.find(n => n.type === 'prompt');
     if (!promptNode) {
-      alert('Please add a prompt component to generate content.');
-      return;
+      errors.push('❌ No prompt component found. Please add an AI Prompt Builder component.');
+    } else {
+      // Check for connections
+      const connectedComponents = promptNode.data.connectedComponentsWithIds || [];
+      const hasConnections = connections.some(conn => conn.target === promptNode.id);
+      
+      if (!hasConnections || connectedComponents.length === 0) {
+        errors.push('❌ No components connected to AI Prompt Builder. Please connect at least one component.');
+      } else {
+        // Check individual component configurations
+        const hasOutputSelector = connectedComponents.some(c => c.type === 'output-selector');
+        const hasEvidenceInput = connectedComponents.some(c => c.type === 'evidence-input');
+        const hasStylePersonalization = connectedComponents.some(c => c.type === 'style-personalization');
+        const hasVisualStyling = connectedComponents.some(c => c.type === 'visual-styling');
+        const hasPersonalData = connectedComponents.some(c => c.type === 'personal-data');
+        
+        // Check Output Selector (required)
+        if (!hasOutputSelector) {
+          errors.push('❌ No Output Selector connected. Please connect and configure an Output Selector to specify video or podcast format.');
+        } else if (!outputSelectorData) {
+          errors.push('❌ Output Selector not configured. Please configure the Output Selector to specify generation format.');
+        }
+        
+        // Check Evidence Input (recommended)
+        if (!hasEvidenceInput) {
+          warnings.push('⚠️ No Evidence-Based Input connected. Content will be generated without evidence guidelines.');
+        } else if (!evidenceData || !evidenceData.fileContent || evidenceData.fileContent.trim().length === 0) {
+          errors.push('❌ Evidence-Based Input connected but not configured. Please upload and process evidence documents.');
+        }
+        
+        // Check Style Personalization (optional)
+        if (hasStylePersonalization && (!styleData)) {
+          errors.push('❌ Conversational Style connected but not configured. Please configure communication style settings.');
+        }
+        
+        // Check Visual Styling (optional)
+        if (hasVisualStyling && (!visualStylingData)) {
+          errors.push('❌ Visual Styling connected but not configured. Please configure visual appearance settings.');
+        }
+        
+        // Check Personal Data (optional)
+        if (hasPersonalData && (!personalData)) {
+          errors.push('❌ Personal Health Profile connected but not configured. Please configure personal health data.');
+        }
+      }
     }
-
-    // Check for output component connection and configuration
-    const connectedComponents = promptNode.data.connectedComponentsWithIds || [];
-    const hasOutputSelector = connectedComponents.some(c => c.type === 'output-selector');
     
-    if (!hasOutputSelector || !outputSelectorData) {
-      alert('Please connect and configure an Output Selector component to specify the generation format (video or podcast).');
-      return;
-    }
-
-    // Check for minimum viable configuration (evidence + any connections)
-    const hasEvidence = evidenceData !== null;
-    const hasConnections = connections.some(conn => conn.target === promptNode.id);
-
-    if (!hasEvidence || !hasConnections) {
-      alert('Please configure evidence input and connect components to the prompt to generate content.');
-      return;
+    // Show comprehensive error/warning message if there are issues
+    if (errors.length > 0 || warnings.length > 0) {
+      let message = '';
+      
+      if (errors.length > 0) {
+        message += 'Configuration Issues Found:\n\n';
+        message += errors.join('\n') + '\n';
+      }
+      
+      if (warnings.length > 0) {
+        if (errors.length > 0) message += '\n';
+        message += 'Warnings:\n\n';
+        message += warnings.join('\n') + '\n';
+      }
+      
+      if (errors.length > 0) {
+        message += '\nPlease fix the errors above before generating content.';
+        alert(message);
+        return;
+      } else {
+        // Only warnings - ask for confirmation
+        message += '\nDo you want to proceed with content generation despite these warnings?';
+        if (!confirm(message)) {
+          return;
+        }
+      }
     }
 
     setConfirmationModalOpen(true);
@@ -1149,7 +1196,7 @@ export default function PipelineBuilder() {
                 configured: true,
                 title: 'AI Prompt',
                 description: 'Build and edit AI prompt',
-                prompt: '',
+                prompt: 'Generate content based on the following:',
                 connectedComponents: [],
               },
             }
@@ -1163,7 +1210,7 @@ export default function PipelineBuilder() {
           setSelectedService('gemini');
           setCustomApiKey(null);
           setBackendCredentials({});
-          setPromptText('You are a health content generation assistant with access to MCP tools.\n\nConnect components to access their data through the MCP protocol.');
+          setPromptText('Generate content based on the following:');
           setLastSaveTime(null);
         }}
       />

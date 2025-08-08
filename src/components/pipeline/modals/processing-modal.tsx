@@ -167,7 +167,6 @@ export default function ProcessingModal({
           websocket = new WebSocket(websocketUrl);
           
           websocket.onopen = () => {
-            console.log('WebSocket connected for real-time progress');
             websocketConnected = true;
           };
           
@@ -186,7 +185,6 @@ export default function ProcessingModal({
           };
           
           websocket.onclose = () => {
-            console.log('WebSocket connection closed');
             websocketConnected = false;
           };
         } catch (error) {

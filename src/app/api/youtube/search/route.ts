@@ -28,7 +28,6 @@ export async function POST(request: NextRequest) {
       auth: oauth2Client,
     });
 
-    console.log(`Fetching user's uploaded videos with max results: ${maxResults}`);
 
     // First, get the user's channel ID
     const channelResponse = await youtube.channels.list({
@@ -122,7 +121,6 @@ export async function POST(request: NextRequest) {
         hasCaption: true,
       }));
 
-    console.log(`Found ${videosWithCaptions.length} uploaded videos with captions`);
 
     return NextResponse.json({
       videos: videosWithCaptions,

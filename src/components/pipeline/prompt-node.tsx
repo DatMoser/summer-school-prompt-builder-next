@@ -237,14 +237,39 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
     return finalPrompt.trim();
   };
 
-  useEffect(() => {
-    console.log("ConnectedComponents with ID", data.connectedComponentsWithIds)
-  }, [data.connectedComponentsWithIds]);
+  // Helper to check if a connected component is configured
+  const isConnectedComponentConfigured = (componentType: string) => {
+    switch (componentType) {
+      case 'evidence-input':
+        return data.evidenceData !== null && data.evidenceData !== undefined && 
+               data.evidenceData.fileContent && data.evidenceData.fileContent.trim().length > 0;
+      case 'style-personalization':
+        return data.styleData !== null && data.styleData !== undefined;
+      case 'visual-styling':
+        return data.visualStylingData !== null && data.visualStylingData !== undefined;
+      case 'personal-data':
+        return data.personalData !== null && data.personalData !== undefined;
+      case 'output-selector':
+        return data.outputSelectorData !== null && data.outputSelectorData !== undefined;
+      default:
+        return false;
+    }
+  };
+
+  // Check if all connected components are configured
+  const areAllConnectedComponentsConfigured = () => {
+    if (!Array.isArray(connectedComponentsWithIds) || connectedComponentsWithIds.length === 0) {
+      return true; // No connections means no configuration requirements
+    }
+    return connectedComponentsWithIds.every(component => 
+      component?.type ? isConnectedComponentConfigured(component.type) : false
+    );
+  };
 
   return (
     <div className="relative group">
       <div
-        className={`bg-gradient-to-br from-purple-600 to-purple-700 p-6 rounded-xl shadow-lg border border-purple-400/20 w-[500px] hover:shadow-purple-500/20 hover:shadow-xl transition-all ${selected ? 'ring-2 ring-blue-400' : ''
+        className={`bg-gradient-to-br from-purple-600 to-purple-700 p-6 rounded-xl shadow-lg border border-purple-400/20 w-[650px] hover:shadow-purple-500/20 hover:shadow-xl transition-all ${selected ? 'ring-2 ring-blue-400' : ''
           }`}
       >
         {/* Input handles for connecting components */}
@@ -264,10 +289,7 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
         <div key={`prompt-sections-${connectionsKey}-${immediateKey}-${deletedKey}-${data._updateTimestamp || 0}`} className="mb-4">
           {/* Always show the base prompt */}
           <BasePromptSection>
-            <div className="text-purple-300 font-medium mb-1">👋 Getting Started</div>
-            You are a health content generation assistant that works with data providers.
-
-            Connect components to collect data that will be passed to an MCP server.
+Generate content based on the following:
           </BasePromptSection>
           
           {/* Show connected components as additional sections */}
@@ -332,22 +354,8 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
           <div className="flex justify-center">
             <button
               onClick={data.onGenerate}
-              disabled={
-                connectedComponentsWithIds.length === 0 || 
-                data.backendHealthStatus === 'unhealthy' || 
-                data.backendHealthStatus === 'unknown' ||
-                data.backendHealthStatus === 'checking'
-              }
-              className="bg-purple-500 hover:bg-purple-400 disabled:bg-purple-600/50 disabled:cursor-not-allowed cursor-pointer text-white px-6 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-colors"
-              title={
-                data.backendHealthStatus === 'unhealthy' 
-                  ? 'Service unavailable - The backend service is offline. Click Settings (top-right) to check your configuration and ensure the backend is running.'
-                  : data.backendHealthStatus === 'unknown' || data.backendHealthStatus === 'checking'
-                  ? 'Service status unknown - Checking backend service health. Please wait or click Settings to verify configuration.'
-                  : connectedComponentsWithIds.length === 0
-                  ? 'Connect components to generate content'
-                  : 'Generate personalized content'
-              }
+              className="bg-purple-500 hover:bg-purple-400 cursor-pointer text-white px-6 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-colors"
+              title="Generate personalized content - click to proceed or get detailed error messages"
             >
               <Play size={16} />
               Generate Content

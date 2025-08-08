@@ -49,10 +49,6 @@ export async function POST(request: NextRequest) {
     };
 
     // Log the request for debugging
-    console.log('Requesting style generation from backend:', {
-      styleDescription: styleDescription.substring(0, 100) + (styleDescription.length > 100 ? '...' : ''),
-      type
-    });
 
     // Make request to backend service with timeout
     const controller = new AbortController();
@@ -116,11 +112,6 @@ export async function POST(request: NextRequest) {
         additionalInstructions: backendResult.additionalInstructions || '',
         sourceDescription: `AI-generated: "${styleDescription}"`
       };
-
-      console.log('Style generation successful:', {
-        originalFields: Object.keys(backendResult),
-        transformedFields: Object.keys(transformedResult)
-      });
 
       return NextResponse.json({
         success: true,

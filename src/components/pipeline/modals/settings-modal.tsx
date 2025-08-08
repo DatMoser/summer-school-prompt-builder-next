@@ -105,6 +105,7 @@ export default function SettingsModal({
       elevenlabsApiKey: currentBackendCredentials?.elevenlabsApiKey || ''
     });
     setGcCredentialsJson('');
+    setIsCredentialsExpanded(false);
     onOpenChange(false);
   };
   
@@ -135,6 +136,13 @@ export default function SettingsModal({
     const interval = setInterval(handleHealthCheck, 30000);
     return () => clearInterval(interval);
   }, [open, onHealthCheck, handleHealthCheck]);
+
+  // Reset credentials expanded state when custom API key is disabled
+  useEffect(() => {
+    if (!useCustomApiKey) {
+      setIsCredentialsExpanded(false);
+    }
+  }, [useCustomApiKey]);
   
   const getHealthStatusDisplay = () => {
     switch (healthStatus) {
@@ -224,6 +232,12 @@ export default function SettingsModal({
               )}
             </div>
             
+            {/* Debug: Backend URL Display */}
+            <div className="mt-2 p-2 bg-gray-700/50 border border-gray-600/50 rounded text-xs">
+              <span className="text-gray-400">Backend URL: </span>
+              <span className="text-gray-300 font-mono">{process.env.NEXT_PUBLIC_BACKEND_URL || 'Not set'}</span>
+            </div>
+            
             {healthStatus === 'unhealthy' && (
               <div className="mt-2 p-2 bg-red-500/10 border border-red-400/20 rounded text-xs text-red-400">
                 ⚠️ Backend service is not accessible. Make sure your FastAPI server is running on the configured URL.
@@ -276,27 +290,28 @@ export default function SettingsModal({
             </div>
           </div>
 
-          {/* Backend Configuration */}
-          <div className="border-t border-gray-600 pt-4">
-            <div className="space-y-3">
-              <button
-                onClick={() => setIsCredentialsExpanded(!isCredentialsExpanded)}
-                className="flex items-center justify-between w-full text-left group"
-              >
-                <div>
-                  <Label className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors cursor-pointer">
-                    Backend Service Credentials
-                  </Label>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Required for video and audio generation via your FastAPI backend
-                  </p>
-                </div>
-                {isCredentialsExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
-                )}
-              </button>
+          {/* Backend Configuration - Only show if custom API key is enabled */}
+          {useCustomApiKey && (
+            <div className="border-t border-gray-600 pt-4">
+              <div className="space-y-3">
+                <button
+                  onClick={() => setIsCredentialsExpanded(!isCredentialsExpanded)}
+                  className="flex items-center justify-between w-full text-left group"
+                >
+                  <div>
+                    <Label className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors cursor-pointer">
+                      Backend Service Credentials
+                    </Label>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Required for video and audio generation via your FastAPI backend
+                    </p>
+                  </div>
+                  {isCredentialsExpanded ? (
+                    <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+                  )}
+                </button>
               
               {isCredentialsExpanded && (
                 <div className="grid grid-cols-1 gap-4 mt-4 pl-2 border-l-2 border-gray-600">
@@ -373,6 +388,7 @@ export default function SettingsModal({
               )}
             </div>
           </div>
+          )}
 
         </div>
 

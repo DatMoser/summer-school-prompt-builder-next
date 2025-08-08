@@ -217,15 +217,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Log the request for debugging
-    console.log(`Generating ${format} content with request:`, {
-      mode: backendRequest.mode,
-      generate_thumbnail: backendRequest.generate_thumbnail,
-      credentials: backendRequest.credentials ? Object.keys(backendRequest.credentials).reduce((acc, key) => {
-        acc[key] = key.includes('key') || key.includes('credentials') ? '[REDACTED]' : backendRequest.credentials[key];
-        return acc;
-      }, {} as any) : 'none',
-      parameters: backendRequest.parameters || 'none'
-    });
 
     // Make request to backend service with timeout
     const controller = new AbortController();
@@ -302,7 +293,6 @@ export async function POST(request: NextRequest) {
       clearTimeout(timeoutId);
       
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        console.error('Backend request timed out after 30 seconds');
         return NextResponse.json(
           { 
             success: false, 
@@ -319,7 +309,6 @@ export async function POST(request: NextRequest) {
         fetchError.message.includes('ECONNREFUSED') ||
         fetchError.message.includes('network')
       )) {
-        console.error('Backend service connection failed:', fetchError.message);
         return NextResponse.json(
           { 
             success: false, 

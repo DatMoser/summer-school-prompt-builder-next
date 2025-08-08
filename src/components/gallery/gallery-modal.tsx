@@ -79,7 +79,6 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
         
         // If we deduplicated items, save the clean list back to localStorage
         if (deduplicatedItems.length !== parsedItems.length) {
-          console.log(`Deduplicated gallery: ${parsedItems.length} -> ${deduplicatedItems.length} items`);
           localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(deduplicatedItems));
         }
         
@@ -147,7 +146,6 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
             }
           } else if (response.status === 404) {
             // Job not found - remove from gallery
-            console.log(`Job ${job.id} not found on server, removing from gallery`);
             jobsToRemove.push(job.id);
             hasUpdates = true;
           } else if (response.status >= 500) {
@@ -175,7 +173,6 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
             
             if (hoursSinceLastUpdate > 1) {
               // Remove jobs that haven't been updated for over an hour
-              console.log(`Removing stale job ${job.id} that hasn't updated in ${hoursSinceLastUpdate.toFixed(1)} hours`);
               jobsToRemove.push(job.id);
               hasUpdates = true;
             } else {
@@ -226,7 +223,6 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
         const filteredHistory = history.filter((item: any) => item.id !== itemId);
         localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(filteredHistory));
         loadGalleryItems(); // Reload items to reflect deletion
-        console.log(`Manually deleted item ${itemId} from gallery`);
       }
     } catch (error) {
       console.error('Failed to delete gallery item:', error);
