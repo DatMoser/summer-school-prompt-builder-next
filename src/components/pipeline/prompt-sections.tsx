@@ -30,6 +30,7 @@ export interface StylePromptSectionProps extends PromptSectionProps {
     keyPhrases?: string[];
     targetAudience?: string;
     contentStructure?: string;
+    customPrompt?: string;
   };
 }
 
@@ -91,6 +92,7 @@ export interface VisualStylingPromptSectionProps extends PromptSectionProps {
     };
     healthFocus?: string;
     targetDemographic?: string;
+    customPrompt?: string;
   };
 }
 

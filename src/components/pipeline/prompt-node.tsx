@@ -32,6 +32,7 @@ interface PromptNodeData {
   evidenceData?: {
     summary?: string;
     extractedGuidelines?: string[];
+    fileContent?: string;
   };
   styleData?: {
     tone?: string;
@@ -46,10 +47,37 @@ interface PromptNodeData {
     keyPhrases?: string[];
     targetAudience?: string;
     contentStructure?: string;
+    customPrompt?: string;
   };
   personalData?: {
     averageDailySteps?: number;
     averageHeartRate?: number;
+    age?: number;
+    biologicalSex?: string;
+    heightCm?: number;
+    weightKg?: number;
+    fitnessLevel?: string;
+    healthGoals?: string[];
+    exercisePreferences?: string[];
+    sleepSchedule?: string;
+    activeTimeOfDay?: string;
+    weeklyActivityConsistency?: string;
+    fitnessGoals?: string;
+    sleepHoursPerNight?: number;
+    activeEnergyBurned?: number;
+    exerciseMinutesPerWeek?: number;
+    restingHeartRate?: number;
+    vo2Max?: number;
+    walkingHeartRateAverage?: number;
+    workoutDaysPerWeek?: number;
+    bodyMassIndex?: number;
+    bloodGlucose?: number;
+    waterIntakeLiters?: number;
+    workoutTypes?: string[];
+    mostActiveTimeOfDay?: string;
+    heartRateVariability?: number;
+    bloodPressureSystolic?: number;
+    bloodPressureDiastolic?: number;
   };
   visualStylingData?: {
     videoStyle?: {
@@ -70,6 +98,7 @@ interface PromptNodeData {
     };
     healthFocus?: string;
     targetDemographic?: string;
+    customPrompt?: string;
   };
   outputSelectorData?: {
     selectedFormat?: string;

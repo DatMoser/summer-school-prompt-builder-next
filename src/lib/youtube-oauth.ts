@@ -148,13 +148,13 @@ function parseTTMLContent(content: string): TranscriptSegment[] {
   
   try {
     // Parse TTML format - extract <p> elements with timing
-    const pElements = content.match(/<p[^>]*begin="([^"]*)"[^>]*dur="([^"]*)"[^>]*>(.*?)<\/p>/gs);
+    const pElements = content.match(/<p[^>]*begin="([^"]*)"[^>]*dur="([^"]*)"[^>]*>([\s\S]*?)<\/p>/g);
     
     if (pElements) {
       pElements.forEach(element => {
         const beginMatch = element.match(/begin="([^"]*)"/);
         const durMatch = element.match(/dur="([^"]*)"/);
-        const textMatch = element.match(/>(.*?)<\/p>/s);
+        const textMatch = element.match(/>([\s\S]*?)<\/p>/);
         
         if (beginMatch && textMatch) {
           const offset = parseTimeToMs(beginMatch[1]);
