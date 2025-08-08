@@ -6,11 +6,9 @@ const { config } = require('dotenv');
 if (process.env.NEXT_BUILD_MODE === 'development') {
   // Load development environment variables for both build and runtime
   config({ path: '.env.development', override: true });
-  console.log('✅ Loading development environment from .env.development');
 } else {
   // Load production environment variables  
   config({ path: '.env.production', override: false });
-  console.log('✅ Loading production environment from .env.production');
 }
 
 const nextConfig: NextConfig = {

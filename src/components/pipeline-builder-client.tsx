@@ -53,7 +53,7 @@ export default function PipelineBuilder() {
   });
 
   useEffect(() => {
-    console.log("🥳🍾 Just detected that nodes changed", nodes)
+    // Track node changes
   }, [nodes]);
 
 
@@ -476,7 +476,6 @@ export default function PipelineBuilder() {
       if (response.ok) {
         const healthData = await response.json().catch(() => null);
         setBackendHealthStatus('healthy');
-        console.log('Backend health check passed:', healthData);
       } else {
         console.warn(`Backend health check failed with status: ${response.status} ${response.statusText}`);
         setBackendHealthStatus('unhealthy');
@@ -594,30 +593,16 @@ export default function PipelineBuilder() {
       const hasImmediateUpdate = promptNode.data._immediateUpdate;
       const deletedNodeId = promptNode.data._deletedNodeId;
 
-      // Debug logging for deletion scenario
-      console.log('🔍 PROMPT UPDATE CHECK:', {
-        currentCount: currentConnectedComponentsWithIds.length,
-        newCount: connectedComponentsWithIds.length,
-        typesChanged,
-        idsChanged,
-        hasImmediateUpdate,
-        deletedNodeId,
-        currentIds: currentConnectedComponentsWithIds.map(c => c.id),
-        newIds: connectedComponentsWithIds.map(c => c.id)
-      });
 
       // Force update if we have an immediate update flag or if components changed
       if (!typesChanged && !idsChanged && !hasImmediateUpdate) {
-        console.log('❌ No changes detected, skipping prompt update');
         return prevNodes; // No change needed
       }
 
       // If we have an immediate update, force the update regardless of comparison
       if (hasImmediateUpdate) {
-        console.log('⚡ IMMEDIATE UPDATE DETECTED - forcing prompt update');
       }
 
-      console.log('✅ Changes detected, updating prompt node');
 
       // Update the prompt node's connected components
       const updatedNodes = prevNodes.map(node =>
@@ -640,9 +625,6 @@ export default function PipelineBuilder() {
           : node
       );
 
-      // Debug logs for prompt node updates (crucial for deletion bug hunt)
-      const updatedPromptNode = updatedNodes.find(n => n.type === 'prompt');
-      console.log('🔗 Updated prompt connectedComponentsWithIds:', updatedPromptNode?.data.connectedComponentsWithIds);
 
       return updatedNodes;
     });
