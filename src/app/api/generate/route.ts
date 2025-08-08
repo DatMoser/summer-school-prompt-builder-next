@@ -35,8 +35,10 @@ interface BackendGenerationResponse {
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 export async function POST(request: NextRequest) {
+  console.log('🎯 GENERATE API POST - REQUEST RECEIVED');
   try {
     const body = await request.json();
+    console.log('📝 GENERATE API - REQUEST BODY:', body);
     
     // Extract generation parameters from request
     const {
@@ -69,51 +71,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build the enhanced prompt with all context
+    // Use the prompt as-is since it's already been enhanced by the AI prompt builder
+    // The prompt now comes pre-formatted from the generateMCPPrompt() function
     let enhancedPrompt = prompt;
-    
-    if (evidenceData?.fileContent) {
-      enhancedPrompt += `\n\nEvidence-based guidelines:\n${evidenceData.fileContent.substring(0, 2000)}`;
-    }
-    
-    if (styleData) {
-      const styleDescription = [
-        styleData.tone && `Tone: ${styleData.tone}`,
-        styleData.pace && `Pace: ${styleData.pace}`,
-        styleData.vocabulary && `Vocabulary: ${styleData.vocabulary}`,
-        styleData.energy && `Energy: ${styleData.energy}`,
-        styleData.formality && `Formality: ${styleData.formality}`,
-        styleData.humor && `Humor: ${styleData.humor}`,
-        styleData.empathy && `Empathy: ${styleData.empathy}`,
-        styleData.confidence && `Confidence: ${styleData.confidence}`,
-        styleData.storytelling && `Storytelling: ${styleData.storytelling}`,
-        styleData.targetAudience && `Target audience: ${styleData.targetAudience}`,
-        styleData.contentStructure && `Content structure: ${styleData.contentStructure}`
-      ].filter(Boolean).join(', ');
-      
-      if (styleDescription) {
-        enhancedPrompt += `\n\nCommunication style: ${styleDescription}`;
-      }
-      
-      if (styleData.keyPhrases?.length) {
-        enhancedPrompt += `\n\nKey phrases to include: ${styleData.keyPhrases.join(', ')}`;
-      }
-    }
-    
-    if (personalData) {
-      const personalDescription = [
-        personalData.averageDailySteps && `Average daily steps: ${personalData.averageDailySteps.toLocaleString()}`,
-        personalData.averageHeartRate && `Average heart rate: ${personalData.averageHeartRate} BPM`,
-        personalData.age && `Age: ${personalData.age} years`,
-        personalData.biologicalSex && `Biological sex: ${personalData.biologicalSex}`,
-        personalData.fitnessGoals && `Fitness goals: ${personalData.fitnessGoals}`,
-        personalData.restingHeartRate && `Resting heart rate: ${personalData.restingHeartRate} BPM`
-      ].filter(Boolean).join(', ');
-      
-      if (personalDescription) {
-        enhancedPrompt += `\n\nPersonal health data: ${personalDescription}`;
-      }
-    }
 
     // Build credentials object - only for video generation or when explicitly provided
     const credentials: any = {};
@@ -168,7 +128,7 @@ export async function POST(request: NextRequest) {
     const backendRequest: any = {
       mode: format,
       prompt: enhancedPrompt,
-      generate_thumbnail: format === 'audio', // Generate thumbnails for audio content
+      generate_thumbnail: format === 'audio' && !!visualStylingData?.podcastThumbnail, // Generate thumbnails only when visual styling is connected
     };
 
     // Only add credentials if we have any (for video or explicit audio credentials)
@@ -176,30 +136,25 @@ export async function POST(request: NextRequest) {
       backendRequest.credentials = credentials;
     }
 
-    // Add thumbnail prompt for audio
-    if (format === 'audio') {
+    // Add thumbnail prompt for audio when visual styling is connected
+    if (format === 'audio' && visualStylingData?.podcastThumbnail) {
       let thumbnailPrompt = '';
       
-      if (visualStylingData?.podcastThumbnail) {
-        const thumbnail = visualStylingData.podcastThumbnail;
-        thumbnailPrompt = `Create a ${thumbnail.designTheme || 'professional'} podcast cover design with a ${thumbnail.colorScheme || 'warm'} color scheme. `;
-        thumbnailPrompt += `Use ${thumbnail.fontStyle || 'clean'} typography in a ${thumbnail.layoutType || 'balanced'} layout. `;
-        thumbnailPrompt += `The background should be ${thumbnail.backgroundStyle || 'gradient'} style. `;
-        
-        if (thumbnail.iconStyle && thumbnail.iconStyle !== 'none') {
-          thumbnailPrompt += `Include ${thumbnail.iconStyle} icons or elements. `;
-        }
-        
-        if (visualStylingData.healthFocus) {
-          thumbnailPrompt += `The design should focus on ${visualStylingData.healthFocus}. `;
-        }
-        
-        if (visualStylingData.customPrompt) {
-          thumbnailPrompt += visualStylingData.customPrompt;
-        }
-      } else {
-        // Fallback to style data if no visual styling
-        thumbnailPrompt = `Professional ${styleData?.tone || 'modern'} podcast cover design`;
+      const thumbnail = visualStylingData.podcastThumbnail;
+      thumbnailPrompt = `Create a ${thumbnail.designTheme || 'professional'} podcast cover design with a ${thumbnail.colorScheme || 'warm'} color scheme. `;
+      thumbnailPrompt += `Use ${thumbnail.fontStyle || 'clean'} typography in a ${thumbnail.layoutType || 'balanced'} layout. `;
+      thumbnailPrompt += `The background should be ${thumbnail.backgroundStyle || 'gradient'} style. `;
+      
+      if (thumbnail.iconStyle && thumbnail.iconStyle !== 'none') {
+        thumbnailPrompt += `Include ${thumbnail.iconStyle} icons or elements. `;
+      }
+      
+      if (visualStylingData.healthFocus) {
+        thumbnailPrompt += `The design should focus on ${visualStylingData.healthFocus}. `;
+      }
+      
+      if (visualStylingData.customPrompt) {
+        thumbnailPrompt += visualStylingData.customPrompt;
       }
       
       backendRequest.thumbnail_prompt = thumbnailPrompt.trim();
@@ -217,6 +172,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Log the request for debugging
+    console.log('🚀 Generate API - Request to Backend:', {
+      format,
+      generate_thumbnail: backendRequest.generate_thumbnail,
+      thumbnail_prompt: backendRequest.thumbnail_prompt,
+      visualStylingConnected: !!visualStylingData?.podcastThumbnail,
+      backendRequest
+    });
 
     // Make request to backend service with timeout
     const controller = new AbortController();
@@ -268,7 +230,6 @@ export async function POST(request: NextRequest) {
         id: backendResult.job_id,
         format,
         prompt: enhancedPrompt,
-        originalPrompt: prompt,
         evidenceUsed: !!evidenceData?.fileContent,
         styleUsed: !!styleData,
         personalDataUsed: !!personalData,

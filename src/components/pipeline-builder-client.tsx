@@ -885,6 +885,13 @@ export default function PipelineBuilder() {
   };
 
   const handleProcessingComplete = (result: GenerationResult) => {
+    console.log('🎯 Pipeline Builder - Processing Complete Callback:', {
+      result,
+      thumbnailUrl: result.thumbnailUrl,
+      downloadUrl: result.downloadUrl,
+      format: result.format
+    });
+    
     // Update existing gallery item instead of creating a new one
     try {
       const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
@@ -903,7 +910,7 @@ export default function PipelineBuilder() {
           thumbnailUrl: result.thumbnailUrl,
           duration: result.duration,
           fileSize: result.fileSize,
-          status: 'completed',
+          status: 'finished',
           progress: 100,
           lastUpdated: new Date().toISOString()
         };
@@ -929,7 +936,7 @@ export default function PipelineBuilder() {
           duration: result.duration,
           fileSize: result.fileSize,
           createdAt: new Date().toISOString(),
-          status: 'completed',
+          status: 'finished',
           metadata: {
             evidenceUsed: evidenceData !== null,
             styleUsed: styleData !== null,
@@ -1210,6 +1217,7 @@ export default function PipelineBuilder() {
         backendCredentials={backendCredentials}
         onComplete={handleProcessingComplete}
         onCancel={handleProcessingCancel}
+        generatedPrompt={generateMCPPrompt()}
       />
 
       <TitleInputModal

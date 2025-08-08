@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
         title: 'Personalized Heart Health Podcast Episode',
         format: 'audio',
         downloadUrl: 'https://example.com/audio/1',
+        thumbnailUrl: 'https://via.placeholder.com/400x225/059669/ffffff?text=Heart+Health+Podcast',
         duration: 1245,
         fileSize: 15680000,
         createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),

@@ -48,10 +48,43 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
     try {
       const savedItems = localStorage.getItem('pipeline-builder-generation-history');
       if (savedItems) {
+        console.log('🎨 GALLERY OVERLAY OPENED - Loading Local Gallery Data');
+        console.log('📦 Raw localStorage data:', savedItems);
+        
         const parsedItems = JSON.parse(savedItems).map((item: GalleryItemData & { createdAt: string }) => ({
           ...item,
           createdAt: new Date(item.createdAt)
         }));
+        
+        console.log('📋 Parsed gallery items:', parsedItems);
+        console.log('📊 Gallery items summary:');
+        console.log(`  • Total items: ${parsedItems.length}`);
+        
+        const statusCounts = parsedItems.reduce((acc: any, item: any) => {
+          acc[item.status] = (acc[item.status] || 0) + 1;
+          return acc;
+        }, {});
+        console.log('  • Status breakdown:', statusCounts);
+        
+        const formatCounts = parsedItems.reduce((acc: any, item: any) => {
+          acc[item.format] = (acc[item.format] || 0) + 1;
+          return acc;
+        }, {});
+        console.log('  • Format breakdown:', formatCounts);
+        
+        const itemsWithThumbnails = parsedItems.filter((item: any) => item.thumbnailUrl);
+        console.log(`  • Items with thumbnails: ${itemsWithThumbnails.length}/${parsedItems.length}`);
+        
+        if (itemsWithThumbnails.length > 0) {
+          console.log('🖼️ Items with thumbnails:', itemsWithThumbnails.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            format: item.format,
+            thumbnailUrl: item.thumbnailUrl
+          })));
+        }
+        
+        console.log('---');
         
         // Deduplicate items by ID to prevent React key errors
         const deduplicatedItems = parsedItems.reduce((acc: any[], current: any) => {
@@ -79,12 +112,16 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
         
         // If we deduplicated items, save the clean list back to localStorage
         if (deduplicatedItems.length !== parsedItems.length) {
+          console.log(`🧹 Deduplication: ${parsedItems.length} → ${deduplicatedItems.length} items (removed ${parsedItems.length - deduplicatedItems.length} duplicates)`);
           localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(deduplicatedItems));
         }
         
+        console.log('✅ Final gallery items loaded:', deduplicatedItems.length);
         setItems(deduplicatedItems);
       } else {
         // No saved items, start with empty gallery
+        console.log('🎨 GALLERY OVERLAY OPENED - No Local Gallery Data Found');
+        console.log('📦 localStorage is empty - starting with empty gallery');
         setItems([]);
       }
     } catch (error) {
@@ -132,8 +169,8 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
 
               // Add completion data if finished
               if (statusData.status === 'finished') {
-                updatedJob.downloadUrl = statusData.downloadUrl || '';
-                updatedJob.thumbnailUrl = statusData.thumbnailUrl;
+                updatedJob.downloadUrl = statusData.downloadUrl || statusData.audio_url || '';
+                updatedJob.thumbnailUrl = statusData.thumbnailUrl || statusData.thumbnail_url;
                 updatedJob.duration = statusData.duration;
                 updatedJob.fileSize = statusData.fileSize;
                 updatedJob.progress = 100;

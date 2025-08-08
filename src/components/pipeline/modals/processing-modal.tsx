@@ -27,6 +27,7 @@ interface ProcessingModalProps {
   visualStylingData?: any;
   personalData?: any;
   promptText?: string;
+  generatedPrompt?: string;
   customApiKey?: string | null;
   backendCredentials?: {
     googleCloudCredentials?: any;
@@ -57,6 +58,7 @@ export default function ProcessingModal({
   visualStylingData,
   personalData,
   promptText,
+  generatedPrompt,
   customApiKey,
   backendCredentials,
   onComplete,
@@ -74,6 +76,7 @@ export default function ProcessingModal({
 
   // Real processing with API calls
   useEffect(() => {
+    console.log('🔥 PROCESSING MODAL EFFECT TRIGGERED - open:', open);
     if (!open) return;
 
     let pollInterval: NodeJS.Timeout;
@@ -83,6 +86,7 @@ export default function ProcessingModal({
     let websocketConnected = false;
 
     const startProcessing = async () => {
+      console.log('🚀 PROCESSING MODAL - START PROCESSING CALLED');
       try {
         setProgressInfo({
           progress: 0,
@@ -103,7 +107,7 @@ export default function ProcessingModal({
           headers,
           body: JSON.stringify({
             format,
-            prompt: promptText || 'Generate health content based on the provided data.',
+            prompt: generatedPrompt || promptText || 'Generate health content based on the provided data.',
             evidenceData,
             styleData,
             visualStylingData,
@@ -264,6 +268,18 @@ export default function ProcessingModal({
 
     // Helper function to handle progress updates from both WebSocket and polling
     const handleProgressUpdate = (statusData: any, jobId: string) => {
+      console.log('🔄 Processing Modal - Progress Update:', {
+        jobId,
+        status: statusData.status,
+        progress: statusData.progress,
+        thumbnailUrl: statusData.thumbnailUrl,
+        thumbnail_url: statusData.thumbnail_url,
+        downloadUrl: statusData.downloadUrl,
+        download_url: statusData.download_url,
+        audio_url: statusData.audio_url,
+        rawStatusData: statusData
+      });
+
       // Update progress info directly from server response
       setProgressInfo({
         progress: statusData.progress || 0,
@@ -307,12 +323,21 @@ export default function ProcessingModal({
 
         const result: GenerationResult = {
           id: jobId,
-          downloadUrl: statusData.downloadUrl || statusData.download_url || '',
+          downloadUrl: statusData.downloadUrl || statusData.download_url || statusData.audio_url || '',
           thumbnailUrl: statusData.thumbnailUrl || statusData.thumbnail_url,
           format,
           duration: statusData.duration || (format === 'video' ? 8 : 180),
           fileSize: statusData.fileSize || statusData.file_size || (format === 'video' ? 25600000 : 5120000)
         };
+        
+        console.log('✅ Processing Modal - Generation Complete:', {
+          jobId,
+          result,
+          originalThumbnailUrl: statusData.thumbnailUrl,
+          originalThumbnail_url: statusData.thumbnail_url,
+          finalThumbnailUrl: result.thumbnailUrl
+        });
+        
         setResult(result);
 
         // Update gallery item with final result
@@ -322,10 +347,10 @@ export default function ProcessingModal({
             const history = JSON.parse(savedHistory);
             const itemIndex = history.findIndex((item: any) => item.id === jobId);
             if (itemIndex !== -1) {
-              history[itemIndex] = {
+              const updatedItem = {
                 ...history[itemIndex],
                 status: 'finished',
-                downloadUrl: statusData.downloadUrl || statusData.download_url || '',
+                downloadUrl: statusData.downloadUrl || statusData.download_url || statusData.audio_url || '',
                 thumbnailUrl: statusData.thumbnailUrl || statusData.thumbnail_url,
                 duration: statusData.duration || (format === 'video' ? 8 : 180),
                 fileSize: statusData.fileSize || statusData.file_size || (format === 'video' ? 25600000 : 5120000),
@@ -333,6 +358,16 @@ export default function ProcessingModal({
                 currentStep: 'Completed',
                 lastUpdated: new Date().toISOString()
               };
+              
+              console.log('💾 Processing Modal - Saving to localStorage:', {
+                jobId,
+                originalThumbnailUrl: statusData.thumbnailUrl,
+                originalThumbnail_url: statusData.thumbnail_url,
+                savedThumbnailUrl: updatedItem.thumbnailUrl,
+                updatedItem
+              });
+              
+              history[itemIndex] = updatedItem;
               localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
             }
           }
@@ -383,7 +418,7 @@ export default function ProcessingModal({
         websocket.close();
       }
     };
-  }, [open, format, promptText, evidenceData, styleData, personalData, customApiKey, backendCredentials]);
+  }, [open, format, promptText, generatedPrompt, evidenceData, styleData, personalData, customApiKey, backendCredentials]);
 
   const handleCancel = () => {
     if (onCancel) {

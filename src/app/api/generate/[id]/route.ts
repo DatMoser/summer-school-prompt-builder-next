@@ -5,6 +5,7 @@ interface BackendStatusResponse {
   job_id: string;
   status: 'queued' | 'started' | 'finished' | 'failed' | 'not_found';
   download_url?: string;
+  audio_url?: string; // Backend may return audio_url instead of download_url
   thumbnail_url?: string;
   progress?: number;
   current_step?: string;
@@ -118,6 +119,15 @@ export async function GET(
 
     const backendResult: BackendStatusResponse = await backendResponse.json();
 
+    console.log('🌐 Generate API - Backend Status Response:', {
+      jobId,
+      backendStatus: backendResult.status,
+      thumbnail_url: backendResult.thumbnail_url,
+      download_url: backendResult.download_url,
+      audio_url: backendResult.audio_url,
+      fullBackendResult: backendResult
+    });
+
     // Build response with additional metadata
     const response = {
       success: true,
@@ -127,7 +137,7 @@ export async function GET(
       currentStep: backendResult.current_step || 'Processing',
       message: backendResult.message,
       error: backendResult.error,
-      downloadUrl: backendResult.download_url,
+      downloadUrl: backendResult.download_url || backendResult.audio_url,
       thumbnailUrl: backendResult.thumbnail_url,
       duration: backendResult.duration,
       fileSize: backendResult.file_size,
@@ -135,11 +145,18 @@ export async function GET(
       isFailed: backendResult.status === 'failed'
     };
 
+    console.log('📤 Generate API - Response to Client:', {
+      jobId,
+      responseStatus: response.status,
+      responseThumbnailUrl: response.thumbnailUrl,
+      responseDownloadUrl: response.downloadUrl
+    });
+
     // If job is complete, we might want to save it to user's gallery
-    if (backendResult.status === 'finished' && backendResult.download_url) {
+    if (backendResult.status === 'finished' && (backendResult.download_url || backendResult.audio_url)) {
       // Here you could trigger saving to user's gallery
       // For now, we'll just include the download URL in the response
-      response.downloadUrl = backendResult.download_url;
+      response.downloadUrl = backendResult.download_url || backendResult.audio_url;
       response.thumbnailUrl = backendResult.thumbnail_url;
     }
 
