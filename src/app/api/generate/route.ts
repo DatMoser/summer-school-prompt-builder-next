@@ -224,6 +224,7 @@ export async function POST(request: NextRequest) {
       }
 
       const backendResult: BackendGenerationResponse = await backendResponse.json();
+      console.log('🔄 Generate API - Backend Response Received:', backendResult);
 
       // Store generation job info for tracking
       const jobInfo = {
@@ -240,7 +241,7 @@ export async function POST(request: NextRequest) {
         message: backendResult.message
       };
 
-      return NextResponse.json({
+      const responseData = {
         success: true,
         jobId: backendResult.job_id,
         status: backendResult.status,
@@ -248,7 +249,11 @@ export async function POST(request: NextRequest) {
         currentStep: backendResult.current_step || 'Initializing',
         message: backendResult.message,
         jobInfo
-      });
+      };
+
+      console.log('📤 Generate API - Sending Response to Client:', responseData);
+      
+      return NextResponse.json(responseData);
 
     } catch (fetchError: unknown) {
       clearTimeout(timeoutId);

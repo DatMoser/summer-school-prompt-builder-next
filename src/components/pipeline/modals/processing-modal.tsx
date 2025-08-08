@@ -101,13 +101,26 @@ export default function ProcessingModal({
           'Content-Type': 'application/json'
         };
 
+        // Log the final prompt being sent
+        const finalPrompt = generatedPrompt || promptText || 'Generate health content based on the provided data.';
+        console.log('📨 ProcessingModal - Final Prompt Being Sent:', finalPrompt);
+        console.log('📊 ProcessingModal - Request Data:', {
+          format,
+          promptLength: finalPrompt.length,
+          hasEvidenceData: !!evidenceData,
+          hasStyleData: !!styleData,
+          hasVisualStylingData: !!visualStylingData,
+          hasPersonalData: !!personalData,
+          hasCustomApiKey: !!customApiKey
+        });
+
         // Start generation
         const response = await fetch('/api/generate', {
           method: 'POST',
           headers,
           body: JSON.stringify({
             format,
-            prompt: generatedPrompt || promptText || 'Generate health content based on the provided data.',
+            prompt: finalPrompt,
             evidenceData,
             styleData,
             visualStylingData,
@@ -127,6 +140,7 @@ export default function ProcessingModal({
         }
 
         const { jobId: newJobId } = await response.json();
+        console.log('🆔 ProcessingModal - Job Started with ID:', newJobId);
 
         // Immediately save job to local storage for gallery tracking
         try {
@@ -310,7 +324,10 @@ export default function ProcessingModal({
         console.error('Failed to update gallery item:', error);
       }
 
+      console.log('🔍 ProcessingModal - Status Check:', statusData.status);
+      
       if (statusData.status === 'finished') {
+        console.log('🎉 ProcessingModal - Status is FINISHED, processing completion...');
         if (pollInterval) clearInterval(pollInterval);
         if (websocket) websocket.close();
 
@@ -330,12 +347,15 @@ export default function ProcessingModal({
           fileSize: statusData.fileSize || statusData.file_size || (format === 'video' ? 25600000 : 5120000)
         };
         
-        console.log('✅ Processing Modal - Generation Complete:', {
+        console.log('✅ Processing Modal - Generation Complete - FINAL RESULT OBJECT:', {
           jobId,
           result,
           originalThumbnailUrl: statusData.thumbnailUrl,
           originalThumbnail_url: statusData.thumbnail_url,
-          finalThumbnailUrl: result.thumbnailUrl
+          finalThumbnailUrl: result.thumbnailUrl,
+          downloadUrl: result.downloadUrl,
+          hasDownloadUrl: !!result.downloadUrl,
+          hasThumbnailUrl: !!result.thumbnailUrl
         });
         
         setResult(result);
@@ -376,6 +396,7 @@ export default function ProcessingModal({
         }
 
       } else if (statusData.status === 'failed') {
+        console.log('❌ ProcessingModal - Status is FAILED');
         if (pollInterval) clearInterval(pollInterval);
         if (websocket) websocket.close();
         
@@ -407,6 +428,8 @@ export default function ProcessingModal({
         } catch (error) {
           console.error('Failed to update gallery item with error:', error);
         }
+      } else {
+        console.log('⏳ ProcessingModal - Status is in progress:', statusData.status, 'Progress:', statusData.progress);
       }
     };
 
