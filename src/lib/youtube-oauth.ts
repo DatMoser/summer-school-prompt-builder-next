@@ -18,11 +18,6 @@ export async function fetchYouTubeTranscriptWithOAuth(
   endTime?: number
 ): Promise<YouTubeTranscriptResult> {
   try {
-    console.log('YouTube OAuth: Starting transcript fetch with token:', {
-      videoId,
-      hasToken: !!accessToken,
-      tokenLength: accessToken?.length || 0
-    });
     
     // Create OAuth2 client with access token
     const oauth2Client = new google.auth.OAuth2(
@@ -39,7 +34,6 @@ export async function fetchYouTubeTranscriptWithOAuth(
       auth: oauth2Client,
     });
 
-    console.log(`Fetching captions for video ID: ${videoId} with OAuth2`);
 
     // Step 1: Get list of available captions
     const captionsListResponse = await youtube.captions.list({
@@ -52,7 +46,6 @@ export async function fetchYouTubeTranscriptWithOAuth(
       throw new Error('No captions available for this video');
     }
 
-    console.log(`Found ${captions.length} caption tracks`);
 
     // Step 2: Find the best caption track (prefer manual English, then auto-generated)
     let selectedCaption = captions.find(caption => 
@@ -84,7 +77,6 @@ export async function fetchYouTubeTranscriptWithOAuth(
       throw new Error('No suitable caption track found');
     }
 
-    console.log(`Using caption track: ${selectedCaption.snippet?.name} (${selectedCaption.snippet?.language})`);
 
     // Step 3: Download the caption content
     const captionResponse = await youtube.captions.download({
@@ -156,13 +148,13 @@ function parseTTMLContent(content: string): TranscriptSegment[] {
   
   try {
     // Parse TTML format - extract <p> elements with timing
-    const pElements = content.match(/<p[^>]*begin="([^"]*)"[^>]*dur="([^"]*)"[^>]*>(.*?)<\/p>/gs);
+    const pElements = content.match(/<p[^>]*begin="([^"]*)"[^>]*dur="([^"]*)"[^>]*>([\s\S]*?)<\/p>/g);
     
     if (pElements) {
       pElements.forEach(element => {
         const beginMatch = element.match(/begin="([^"]*)"/);
         const durMatch = element.match(/dur="([^"]*)"/);
-        const textMatch = element.match(/>(.*?)<\/p>/s);
+        const textMatch = element.match(/>([\s\S]*?)<\/p>/);
         
         if (beginMatch && textMatch) {
           const offset = parseTimeToMs(beginMatch[1]);

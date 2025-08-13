@@ -13,19 +13,20 @@ interface PersonalDataModalProps {
   onDataUpdate: (data: PersonalHealthData) => void;
 }
 
-// Empty health data template requiring user configuration
-const getEmptyHealthData = (): PersonalHealthData => ({
-  age: 0,
-  biologicalSex: '',
-  heightCm: undefined,
-  weightKg: undefined,
-  fitnessGoals: '',
-  averageDailySteps: 0,
+// Default health data template with reasonable defaults for better time to first podcast
+const getDefaultHealthData = (): PersonalHealthData => ({
+  customInstructions: 'Focus on practical, actionable health advice that I can implement in my daily routine.',
+  age: 35,
+  biologicalSex: 'Male',
+  heightCm: 175,
+  weightKg: 70,
+  fitnessGoals: 'Stay healthy and active, maintain good cardiovascular health',
+  averageDailySteps: 8000,
   averageHeartRate: undefined,
-  sleepHoursPerNight: undefined,
-  activeEnergyBurned: undefined,
-  exerciseMinutesPerWeek: undefined,
-  restingHeartRate: undefined,
+  sleepHoursPerNight: 7.5,
+  activeEnergyBurned: 400,
+  exerciseMinutesPerWeek: 150,
+  restingHeartRate: 65,
   vo2Max: undefined,
   walkingHeartRateAverage: undefined,
   heartRateVariability: undefined,
@@ -33,16 +34,16 @@ const getEmptyHealthData = (): PersonalHealthData => ({
   bloodPressureDiastolic: undefined,
   bodyMassIndex: undefined,
   bloodGlucose: undefined,
-  waterIntakeLiters: undefined,
-  workoutTypes: [],
-  mostActiveTimeOfDay: '',
-  weeklyActivityConsistency: '',
+  waterIntakeLiters: 2.5,
+  workoutTypes: ['Walking', 'Gym workouts', 'Cycling'],
+  mostActiveTimeOfDay: 'Morning',
+  weeklyActivityConsistency: 'Medium',
   sourceDescription: 'Manual Entry',
   lastSyncDate: new Date().toISOString()
 });
 
 export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: PersonalDataModalProps) {
-  const [healthData, setHealthData] = useState<PersonalHealthData>(getEmptyHealthData());
+  const [healthData, setHealthData] = useState<PersonalHealthData>(getDefaultHealthData());
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [workoutTypesText, setWorkoutTypesText] = useState('');
 
@@ -70,7 +71,7 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
 
   const handleCancel = () => {
     onOpenChange(false);
-    setHealthData(getEmptyHealthData());
+    setHealthData(getDefaultHealthData());
     setWorkoutTypesText('');
   };
 
@@ -92,6 +93,28 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Custom Health Instructions */}
+          <div className="space-y-4">
+            <h3 className="text-blue-300 font-medium">Personalization Preferences</h3>
+            
+            <div>
+              <Label htmlFor="customInstructions" className="text-sm font-medium text-gray-300 mb-2 block">
+                Custom Health Instructions
+              </Label>
+              <Textarea
+                id="customInstructions"
+                value={healthData.customInstructions || ''}
+                onChange={(e) => handleFieldChange('customInstructions', e.target.value)}
+                placeholder="e.g., Focus on practical advice that fits my busy lifestyle, prefer natural remedies when possible, avoid high-impact exercises due to knee issues"
+                className="bg-gray-700 border-gray-600 text-gray-200 min-h-[100px]"
+                rows={4}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Specific instructions for how you'd like your health content personalized based on your preferences, limitations, or goals
+              </p>
+            </div>
+          </div>
+
           {/* Basic Demographics & Core Metrics */}
           <div className="space-y-4">
             <h3 className="text-blue-300 font-medium">Basic Profile & Activity</h3>

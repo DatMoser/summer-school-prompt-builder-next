@@ -24,7 +24,7 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-gray-900 border-gray-600 text-white max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto p-0">
-        <DialogTitle className="sr-only">Welcome to PromptRX - Help Guide</DialogTitle>
+        <DialogTitle className="sr-only">Welcome to PRECIOUS Content Generator - Help Guide</DialogTitle>
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
           <div className="text-center">
@@ -32,7 +32,7 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
               <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center animate-pulse">
                 ⚡
               </div>
-              <h1 className="text-3xl font-bold">Welcome to PromptRX</h1>
+              <h1 className="text-3xl font-bold">Welcome to PRECIOUS Content Generator</h1>
             </div>
             <p className="text-purple-100 text-lg">
               Your AI-powered platform for creating personalized health content

@@ -1,18 +1,40 @@
 import type { NextConfig } from "next";
 
+// Dynamic environment loading based on mode
+const { config } = require('dotenv');
+
+if (process.env.NEXT_BUILD_MODE === 'development') {
+  // Load development environment variables for both build and runtime
+  config({ path: '.env.development', override: true });
+} else {
+  // Load production environment variables  
+  config({ path: '.env.production', override: false });
+}
+
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // Enable standalone output only for Docker production builds
+  ...(process.env.NODE_ENV === 'production' && process.env.DOCKER_BUILD && { output: "standalone" }),
+  
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  serverExternalPackages: ['pdfjs-dist'],
   devIndicators: false,
-  experimental: {
-    typedRoutes: false,
-  },
+  serverExternalPackages: ['pdfjs-dist'],
+  
+  // Skip problematic static generation during development builds
+  generateBuildId: () => 'development',
+  
+  // Production optimizations
+  ...(process.env.NODE_ENV === 'production' && {
+    experimental: {
+      typedRoutes: false,
+      optimizeCss: false,
+    },
+    reactStrictMode: false,
+  }),
 };
 
 export default nextConfig;

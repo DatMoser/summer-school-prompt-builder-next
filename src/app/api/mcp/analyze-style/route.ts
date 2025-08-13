@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Environment configuration
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8081';
 
 interface StyleGenerationRequest {
   styleDescription: string;
+  provider?: 'openai' | 'gemini';
   type?: 'generate-preset';
 }
 
@@ -28,9 +29,13 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
+    // Extract API key from request headers
+    const apiKey = request.headers.get('X-API-Key');
+    
     // Extract style description from request
     const {
       styleDescription,
+      provider = 'openai', // Default to OpenAI
       type = 'generate-preset'
     } = body as StyleGenerationRequest;
 
@@ -45,25 +50,29 @@ export async function POST(request: NextRequest) {
     // Build request for backend MCP service
     const backendRequest = {
       prompt: styleDescription,  // Backend expects 'prompt' field
+      provider: provider, // Include provider parameter
       type
     };
 
     // Log the request for debugging
-    console.log('Requesting style generation from backend:', {
-      styleDescription: styleDescription.substring(0, 100) + (styleDescription.length > 100 ? '...' : ''),
-      type
-    });
 
     // Make request to backend service with timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add X-API-Key header if provided
+      if (apiKey) {
+        headers['X-API-Key'] = apiKey;
+      }
+      
       const backendResponse = await fetch(`${BACKEND_URL}/mcp/analyze-style`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify(backendRequest),
         signal: controller.signal
       });
@@ -116,11 +125,6 @@ export async function POST(request: NextRequest) {
         additionalInstructions: backendResult.additionalInstructions || '',
         sourceDescription: `AI-generated: "${styleDescription}"`
       };
-
-      console.log('Style generation successful:', {
-        originalFields: Object.keys(backendResult),
-        transformedFields: Object.keys(transformedResult)
-      });
 
       return NextResponse.json({
         success: true,

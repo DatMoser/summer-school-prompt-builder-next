@@ -5,6 +5,7 @@ interface BackendStatusResponse {
   job_id: string;
   status: 'queued' | 'started' | 'finished' | 'failed' | 'not_found';
   download_url?: string;
+  audio_url?: string; // Backend may return audio_url instead of download_url
   thumbnail_url?: string;
   progress?: number;
   current_step?: string;
@@ -15,7 +16,7 @@ interface BackendStatusResponse {
 }
 
 // Environment configuration
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8081';
 
 export async function GET(
   request: NextRequest,
@@ -23,6 +24,9 @@ export async function GET(
 ) {
   try {
     const { id: jobId } = await params;
+    
+    // Extract API key from request headers
+    const apiKey = request.headers.get('X-API-Key');
     const { searchParams } = new URL(request.url);
     const usePolling = searchParams.get('wait') === 'true';
 
@@ -42,11 +46,18 @@ export async function GET(
     
     let backendResponse: Response;
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add X-API-Key header if provided
+      if (apiKey) {
+        headers['X-API-Key'] = apiKey;
+      }
+      
       backendResponse = await fetch(`${BACKEND_URL}${endpoint}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         signal: controller.signal
       });
 
@@ -118,6 +129,15 @@ export async function GET(
 
     const backendResult: BackendStatusResponse = await backendResponse.json();
 
+    console.log('🌐 Generate API - Backend Status Response:', {
+      jobId,
+      backendStatus: backendResult.status,
+      thumbnail_url: backendResult.thumbnail_url,
+      download_url: backendResult.download_url,
+      audio_url: backendResult.audio_url,
+      fullBackendResult: backendResult
+    });
+
     // Build response with additional metadata
     const response = {
       success: true,
@@ -127,7 +147,7 @@ export async function GET(
       currentStep: backendResult.current_step || 'Processing',
       message: backendResult.message,
       error: backendResult.error,
-      downloadUrl: backendResult.download_url,
+      downloadUrl: backendResult.download_url || backendResult.audio_url,
       thumbnailUrl: backendResult.thumbnail_url,
       duration: backendResult.duration,
       fileSize: backendResult.file_size,
@@ -135,11 +155,18 @@ export async function GET(
       isFailed: backendResult.status === 'failed'
     };
 
+    console.log('📤 Generate API - Response to Client:', {
+      jobId,
+      responseStatus: response.status,
+      responseThumbnailUrl: response.thumbnailUrl,
+      responseDownloadUrl: response.downloadUrl
+    });
+
     // If job is complete, we might want to save it to user's gallery
-    if (backendResult.status === 'finished' && backendResult.download_url) {
+    if (backendResult.status === 'finished' && (backendResult.download_url || backendResult.audio_url)) {
       // Here you could trigger saving to user's gallery
       // For now, we'll just include the download URL in the response
-      response.downloadUrl = backendResult.download_url;
+      response.downloadUrl = backendResult.download_url || backendResult.audio_url;
       response.thumbnailUrl = backendResult.thumbnail_url;
     }
 
@@ -166,6 +193,9 @@ export async function DELETE(
 ) {
   try {
     const { id: jobId } = await params;
+    
+    // Extract API key from request headers
+    const apiKey = request.headers.get('X-API-Key');
 
     if (!jobId) {
       return NextResponse.json(
@@ -176,11 +206,18 @@ export async function DELETE(
 
     // Note: This endpoint may not exist in the backend service yet
     // This is a placeholder for future cancellation functionality
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    
+    // Add X-API-Key header if provided
+    if (apiKey) {
+      headers['X-API-Key'] = apiKey;
+    }
+    
     const backendResponse = await fetch(`${BACKEND_URL}/mcp/${jobId}/cancel`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers
     });
 
     if (!backendResponse.ok) {

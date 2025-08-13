@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { Video, Podcast } from 'lucide-react';
 import { OutputSelectorData } from '@/lib/pipeline-types';
 
@@ -15,20 +17,26 @@ interface OutputSelectorModalProps {
 
 export default function OutputSelectorModal({ open, onOpenChange, onDataUpdate, currentData, hasGeminiKey, onOpenSettings }: OutputSelectorModalProps) {
   const [selectedFormat, setSelectedFormat] = useState<'video' | 'podcast' | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<'openai' | 'gemini'>('openai');
 
   // Initialize with current data when modal opens, default to podcast
   useEffect(() => {
     if (open && currentData?.selectedFormat) {
       setSelectedFormat(currentData.selectedFormat as 'video' | 'podcast');
+      if ('provider' in currentData) {
+        setSelectedProvider((currentData as any).provider || 'openai');
+      }
     } else if (open && !currentData) {
       setSelectedFormat('podcast'); // Default to podcast
+      setSelectedProvider('openai'); // Default to OpenAI
     }
   }, [open, currentData]);
 
   const handleConfirm = () => {
     if (selectedFormat) {
-      const outputData: OutputSelectorData = {
-        selectedFormat
+      const outputData: OutputSelectorData & { provider?: string } = {
+        selectedFormat,
+        provider: selectedFormat === 'podcast' ? selectedProvider : undefined
       };
       onDataUpdate(outputData);
       onOpenChange(false);
@@ -41,8 +49,12 @@ export default function OutputSelectorModal({ open, onOpenChange, onDataUpdate, 
     // Reset to current data on cancel
     if (currentData?.selectedFormat) {
       setSelectedFormat(currentData.selectedFormat as 'video' | 'podcast');
+      if ('provider' in currentData) {
+        setSelectedProvider((currentData as any).provider || 'openai');
+      }
     } else {
       setSelectedFormat(null);
+      setSelectedProvider('openai');
     }
   };
 
@@ -181,6 +193,32 @@ export default function OutputSelectorModal({ open, onOpenChange, onDataUpdate, 
                   </Button>
                 </div>
               )}
+            </div>
+          )}
+          
+          {/* Provider Selection for Podcast */}
+          {selectedFormat === 'podcast' && (
+            <div className="mt-4 space-y-3">
+              <div className="border-t border-gray-600 pt-4">
+                <Label htmlFor="provider-select" className="text-sm font-medium text-gray-300 mb-2 block">
+                  Text Generation Provider for Podcast
+                </Label>
+                <Select value={selectedProvider} onValueChange={(value: 'openai' | 'gemini') => setSelectedProvider(value)}>
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-gray-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-700 border-gray-600 text-gray-200">
+                    <SelectItem value="openai">GPT-5 - Default</SelectItem>
+                    <SelectItem value="gemini">Google Gemini - Requires API Key</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-400 mt-1">
+                  {selectedProvider === 'openai' 
+                    ? 'Uses built-in OpenAI integration (no configuration required)'
+                    : 'Requires Gemini API key configured in Settings'
+                  }
+                </p>
+              </div>
             </div>
           )}
         </div>

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 interface BackendGenerationRequest {
   mode: 'video' | 'audio';
   prompt: string;
+  provider?: 'openai' | 'gemini';
   generate_thumbnail?: boolean;
   thumbnail_prompt?: string;
   credentials: {
@@ -32,16 +33,22 @@ interface BackendGenerationResponse {
 }
 
 // Environment configuration
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8081';
 
 export async function POST(request: NextRequest) {
+  console.log('🎯 GENERATE API POST - REQUEST RECEIVED');
   try {
     const body = await request.json();
+    
+    // Extract API key from request headers
+    const apiKey = request.headers.get('X-API-Key');
+    console.log('📝 GENERATE API - REQUEST BODY:', body);
     
     // Extract generation parameters from request
     const {
       format,
       prompt,
+      provider = 'openai', // Default to OpenAI
       evidenceData,
       styleData,
       visualStylingData,
@@ -69,51 +76,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build the enhanced prompt with all context
+    // Use the prompt as-is since it's already been enhanced by the AI prompt builder
+    // The prompt now comes pre-formatted from the generateMCPPrompt() function
     let enhancedPrompt = prompt;
-    
-    if (evidenceData?.fileContent) {
-      enhancedPrompt += `\n\nEvidence-based guidelines:\n${evidenceData.fileContent.substring(0, 2000)}`;
-    }
-    
-    if (styleData) {
-      const styleDescription = [
-        styleData.tone && `Tone: ${styleData.tone}`,
-        styleData.pace && `Pace: ${styleData.pace}`,
-        styleData.vocabulary && `Vocabulary: ${styleData.vocabulary}`,
-        styleData.energy && `Energy: ${styleData.energy}`,
-        styleData.formality && `Formality: ${styleData.formality}`,
-        styleData.humor && `Humor: ${styleData.humor}`,
-        styleData.empathy && `Empathy: ${styleData.empathy}`,
-        styleData.confidence && `Confidence: ${styleData.confidence}`,
-        styleData.storytelling && `Storytelling: ${styleData.storytelling}`,
-        styleData.targetAudience && `Target audience: ${styleData.targetAudience}`,
-        styleData.contentStructure && `Content structure: ${styleData.contentStructure}`
-      ].filter(Boolean).join(', ');
-      
-      if (styleDescription) {
-        enhancedPrompt += `\n\nCommunication style: ${styleDescription}`;
-      }
-      
-      if (styleData.keyPhrases?.length) {
-        enhancedPrompt += `\n\nKey phrases to include: ${styleData.keyPhrases.join(', ')}`;
-      }
-    }
-    
-    if (personalData) {
-      const personalDescription = [
-        personalData.averageDailySteps && `Average daily steps: ${personalData.averageDailySteps.toLocaleString()}`,
-        personalData.averageHeartRate && `Average heart rate: ${personalData.averageHeartRate} BPM`,
-        personalData.age && `Age: ${personalData.age} years`,
-        personalData.biologicalSex && `Biological sex: ${personalData.biologicalSex}`,
-        personalData.fitnessGoals && `Fitness goals: ${personalData.fitnessGoals}`,
-        personalData.restingHeartRate && `Resting heart rate: ${personalData.restingHeartRate} BPM`
-      ].filter(Boolean).join(', ');
-      
-      if (personalDescription) {
-        enhancedPrompt += `\n\nPersonal health data: ${personalDescription}`;
-      }
-    }
 
     // Build credentials object - only for video generation or when explicitly provided
     const credentials: any = {};
@@ -152,10 +117,12 @@ export async function POST(request: NextRequest) {
     
     // For audio generation, only add credentials if explicitly provided (backend uses env vars)
     if (format === 'audio') {
-      // Only add custom API key if provided
-      const geminiKey = customApiKey || process.env.GEMINI_API_KEY;
-      if (geminiKey && customApiKey) { // Only add if custom key provided, not env var
-        credentials.gemini_api_key = geminiKey;
+      // Only add Gemini API key if provider is gemini and custom key provided
+      if (provider === 'gemini') {
+        const geminiKey = customApiKey || process.env.GEMINI_API_KEY;
+        if (geminiKey && customApiKey) { // Only add if custom key provided, not env var
+          credentials.gemini_api_key = geminiKey;
+        }
       }
       
       // Only add ElevenLabs key if explicitly provided
@@ -168,7 +135,8 @@ export async function POST(request: NextRequest) {
     const backendRequest: any = {
       mode: format,
       prompt: enhancedPrompt,
-      generate_thumbnail: format === 'audio', // Generate thumbnails for audio content
+      provider: provider, // Include provider parameter
+      generate_thumbnail: format === 'audio' && !!visualStylingData?.podcastThumbnail, // Generate thumbnails only when visual styling is connected
     };
 
     // Only add credentials if we have any (for video or explicit audio credentials)
@@ -176,30 +144,25 @@ export async function POST(request: NextRequest) {
       backendRequest.credentials = credentials;
     }
 
-    // Add thumbnail prompt for audio
-    if (format === 'audio') {
+    // Add thumbnail prompt for audio when visual styling is connected
+    if (format === 'audio' && visualStylingData?.podcastThumbnail) {
       let thumbnailPrompt = '';
       
-      if (visualStylingData?.podcastThumbnail) {
-        const thumbnail = visualStylingData.podcastThumbnail;
-        thumbnailPrompt = `Create a ${thumbnail.designTheme || 'professional'} podcast cover design with a ${thumbnail.colorScheme || 'warm'} color scheme. `;
-        thumbnailPrompt += `Use ${thumbnail.fontStyle || 'clean'} typography in a ${thumbnail.layoutType || 'balanced'} layout. `;
-        thumbnailPrompt += `The background should be ${thumbnail.backgroundStyle || 'gradient'} style. `;
-        
-        if (thumbnail.iconStyle && thumbnail.iconStyle !== 'none') {
-          thumbnailPrompt += `Include ${thumbnail.iconStyle} icons or elements. `;
-        }
-        
-        if (visualStylingData.healthFocus) {
-          thumbnailPrompt += `The design should focus on ${visualStylingData.healthFocus}. `;
-        }
-        
-        if (visualStylingData.customPrompt) {
-          thumbnailPrompt += visualStylingData.customPrompt;
-        }
-      } else {
-        // Fallback to style data if no visual styling
-        thumbnailPrompt = `Professional ${styleData?.tone || 'modern'} podcast cover design`;
+      const thumbnail = visualStylingData.podcastThumbnail;
+      thumbnailPrompt = `Create a ${thumbnail.designTheme || 'professional'} podcast cover design with a ${thumbnail.colorScheme || 'warm'} color scheme. `;
+      thumbnailPrompt += `Use ${thumbnail.fontStyle || 'clean'} typography in a ${thumbnail.layoutType || 'balanced'} layout. `;
+      thumbnailPrompt += `The background should be ${thumbnail.backgroundStyle || 'gradient'} style. `;
+      
+      if (thumbnail.iconStyle && thumbnail.iconStyle !== 'none') {
+        thumbnailPrompt += `Include ${thumbnail.iconStyle} icons or elements. `;
+      }
+      
+      if (visualStylingData.healthFocus) {
+        thumbnailPrompt += `The design should focus on ${visualStylingData.healthFocus}. `;
+      }
+      
+      if (visualStylingData.customPrompt) {
+        thumbnailPrompt += visualStylingData.customPrompt;
       }
       
       backendRequest.thumbnail_prompt = thumbnailPrompt.trim();
@@ -217,14 +180,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Log the request for debugging
-    console.log(`Generating ${format} content with request:`, {
-      mode: backendRequest.mode,
+    console.log('🚀 Generate API - Request to Backend:', {
+      format,
       generate_thumbnail: backendRequest.generate_thumbnail,
-      credentials: backendRequest.credentials ? Object.keys(backendRequest.credentials).reduce((acc, key) => {
-        acc[key] = key.includes('key') || key.includes('credentials') ? '[REDACTED]' : backendRequest.credentials[key];
-        return acc;
-      }, {} as any) : 'none',
-      parameters: backendRequest.parameters || 'none'
+      thumbnail_prompt: backendRequest.thumbnail_prompt,
+      visualStylingConnected: !!visualStylingData?.podcastThumbnail,
+      backendRequest
     });
 
     // Make request to backend service with timeout
@@ -232,11 +193,18 @@ export async function POST(request: NextRequest) {
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add X-API-Key header if provided
+      if (apiKey) {
+        headers['X-API-Key'] = apiKey;
+      }
+      
       const backendResponse = await fetch(`${BACKEND_URL}/mcp`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify(backendRequest),
         signal: controller.signal
       });
@@ -271,13 +239,13 @@ export async function POST(request: NextRequest) {
       }
 
       const backendResult: BackendGenerationResponse = await backendResponse.json();
+      console.log('🔄 Generate API - Backend Response Received:', backendResult);
 
       // Store generation job info for tracking
       const jobInfo = {
         id: backendResult.job_id,
         format,
         prompt: enhancedPrompt,
-        originalPrompt: prompt,
         evidenceUsed: !!evidenceData?.fileContent,
         styleUsed: !!styleData,
         personalDataUsed: !!personalData,
@@ -288,7 +256,7 @@ export async function POST(request: NextRequest) {
         message: backendResult.message
       };
 
-      return NextResponse.json({
+      const responseData = {
         success: true,
         jobId: backendResult.job_id,
         status: backendResult.status,
@@ -296,13 +264,16 @@ export async function POST(request: NextRequest) {
         currentStep: backendResult.current_step || 'Initializing',
         message: backendResult.message,
         jobInfo
-      });
+      };
+
+      console.log('📤 Generate API - Sending Response to Client:', responseData);
+      
+      return NextResponse.json(responseData);
 
     } catch (fetchError: unknown) {
       clearTimeout(timeoutId);
       
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        console.error('Backend request timed out after 30 seconds');
         return NextResponse.json(
           { 
             success: false, 
@@ -319,7 +290,6 @@ export async function POST(request: NextRequest) {
         fetchError.message.includes('ECONNREFUSED') ||
         fetchError.message.includes('network')
       )) {
-        console.error('Backend service connection failed:', fetchError.message);
         return NextResponse.json(
           { 
             success: false, 

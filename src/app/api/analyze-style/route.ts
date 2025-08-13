@@ -78,11 +78,9 @@ export async function POST(request: NextRequest) {
     let logMessage: string;
 
     if (type === 'generate-preset') {
-      console.log('Generating style preset with Gemini Pro...');
       fullPrompt = STYLE_PRESET_PROMPT + styleDescription;
       logMessage = 'style preset generation';
     } else {
-      console.log('Analyzing transcript with Gemini Pro...');
       fullPrompt = STYLE_ANALYSIS_PROMPT + transcript;
       logMessage = 'transcript analysis';
     }
@@ -92,7 +90,6 @@ export async function POST(request: NextRequest) {
     const response = await result.response;
     const analysisText = response.text();
 
-    console.log(`Raw Gemini response for ${logMessage}:`, analysisText);
 
     // Try to parse the JSON response
     let styleAnalysis;

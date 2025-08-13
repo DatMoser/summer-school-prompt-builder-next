@@ -21,9 +21,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Transcript request for video ID: ${videoId}`);
 
-    console.log('Fetching transcript using youtube-transcript-api');
 
     try {
       // Fetch transcript using youtube-transcript
@@ -59,7 +57,6 @@ export async function POST(request: NextRequest) {
       // Now analyze the transcript for style elements using Gemini
       let styleAnalysis = null;
       try {
-        console.log('Calling Gemini for style analysis...');
         
         const customApiKey = request.headers.get('x-gemini-api-key');
         
@@ -78,7 +75,6 @@ export async function POST(request: NextRequest) {
         if (styleResponse.ok) {
           const styleData = await styleResponse.json();
           styleAnalysis = styleData.styleAnalysis;
-          console.log('Style analysis completed successfully');
         } else {
           const errorData = await styleResponse.json().catch(() => ({}));
           console.error('Style analysis failed:', errorData);

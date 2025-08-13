@@ -230,7 +230,7 @@ export default function EvidenceInputModal({ open, onOpenChange, onDataUpdate, e
       // Determine the correct content based on the selected input method
       let finalContent = '';
       let finalFileName = '';
-      
+
       if (inputMethod === 'file' && file && analysisResult.fileName !== 'Manual Text Input') {
         // File input is selected and active
         finalContent = analysisResult.fileContent;
@@ -252,7 +252,7 @@ export default function EvidenceInputModal({ open, onOpenChange, onDataUpdate, e
         summary: '', // Will be generated during content creation
         extractedGuidelines: [] // Will be extracted during content creation
       };
-      
+
       onDataUpdate(evidenceData);
       onOpenChange(false);
 

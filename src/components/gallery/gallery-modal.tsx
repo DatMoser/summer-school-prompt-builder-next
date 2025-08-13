@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Images, 
+import BackendClient from '../../lib/backend-client';
+import {
+  Images,
   RefreshCw,
   Plus,
   FolderOpen
@@ -48,11 +49,44 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
     try {
       const savedItems = localStorage.getItem('pipeline-builder-generation-history');
       if (savedItems) {
+        console.log('🎨 GALLERY OVERLAY OPENED - Loading Local Gallery Data');
+        console.log('📦 Raw localStorage data:', savedItems);
+
         const parsedItems = JSON.parse(savedItems).map((item: GalleryItemData & { createdAt: string }) => ({
           ...item,
           createdAt: new Date(item.createdAt)
         }));
-        
+
+        console.log('📋 Parsed gallery items:', parsedItems);
+        console.log('📊 Gallery items summary:');
+        console.log(`  • Total items: ${parsedItems.length}`);
+
+        const statusCounts = parsedItems.reduce((acc: any, item: any) => {
+          acc[item.status] = (acc[item.status] || 0) + 1;
+          return acc;
+        }, {});
+        console.log('  • Status breakdown:', statusCounts);
+
+        const formatCounts = parsedItems.reduce((acc: any, item: any) => {
+          acc[item.format] = (acc[item.format] || 0) + 1;
+          return acc;
+        }, {});
+        console.log('  • Format breakdown:', formatCounts);
+
+        const itemsWithThumbnails = parsedItems.filter((item: any) => item.thumbnailUrl);
+        console.log(`  • Items with thumbnails: ${itemsWithThumbnails.length}/${parsedItems.length}`);
+
+        if (itemsWithThumbnails.length > 0) {
+          console.log('🖼️ Items with thumbnails:', itemsWithThumbnails.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            format: item.format,
+            thumbnailUrl: item.thumbnailUrl
+          })));
+        }
+
+        console.log('---');
+
         // Deduplicate items by ID to prevent React key errors
         const deduplicatedItems = parsedItems.reduce((acc: any[], current: any) => {
           const existingIndex = acc.findIndex(item => item.id === current.id);
@@ -64,7 +98,7 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
             const existing = acc[existingIndex];
             const currentTime = current.lastUpdated ? new Date(current.lastUpdated).getTime() : new Date(current.createdAt).getTime();
             const existingTime = existing.lastUpdated ? new Date(existing.lastUpdated).getTime() : new Date(existing.createdAt).getTime();
-            
+
             // Keep the more complete/recent item
             if (current.status === 'completed' && existing.status !== 'completed') {
               acc[existingIndex] = current;
@@ -76,16 +110,19 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
           }
           return acc;
         }, []);
-        
+
         // If we deduplicated items, save the clean list back to localStorage
         if (deduplicatedItems.length !== parsedItems.length) {
-          console.log(`Deduplicated gallery: ${parsedItems.length} -> ${deduplicatedItems.length} items`);
+          console.log(`🧹 Deduplication: ${parsedItems.length} → ${deduplicatedItems.length} items (removed ${parsedItems.length - deduplicatedItems.length} duplicates)`);
           localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(deduplicatedItems));
         }
-        
+
+        console.log('✅ Final gallery items loaded:', deduplicatedItems.length);
         setItems(deduplicatedItems);
       } else {
         // No saved items, start with empty gallery
+        console.log('🎨 GALLERY OVERLAY OPENED - No Local Gallery Data Found');
+        console.log('📦 localStorage is empty - starting with empty gallery');
         setItems([]);
       }
     } catch (error) {
@@ -102,7 +139,7 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
       if (!savedItems) return;
 
       const history = JSON.parse(savedItems);
-      const incompleteJobs = history.filter((item: any) => 
+      const incompleteJobs = history.filter((item: any) =>
         item.status === 'started' || item.status === 'queued'
       );
 
@@ -117,10 +154,10 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
       // Check status for each incomplete job
       for (const job of incompleteJobs) {
         try {
-          const response = await fetch(`/api/generate/${job.id}`);
+          const response = await BackendClient.fetch(`/api/generate/${job.id}`);
           if (response.ok) {
             const statusData = await response.json();
-            
+
             // Find and update the job in history
             const jobIndex = history.findIndex((item: any) => item.id === job.id);
             if (jobIndex !== -1) {
@@ -133,8 +170,8 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
 
               // Add completion data if finished
               if (statusData.status === 'finished') {
-                updatedJob.downloadUrl = statusData.downloadUrl || '';
-                updatedJob.thumbnailUrl = statusData.thumbnailUrl;
+                updatedJob.downloadUrl = statusData.downloadUrl || statusData.audio_url || '';
+                updatedJob.thumbnailUrl = statusData.thumbnailUrl || statusData.thumbnail_url;
                 updatedJob.duration = statusData.duration;
                 updatedJob.fileSize = statusData.fileSize;
                 updatedJob.progress = 100;
@@ -147,7 +184,6 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
             }
           } else if (response.status === 404) {
             // Job not found - remove from gallery
-            console.log(`Job ${job.id} not found on server, removing from gallery`);
             jobsToRemove.push(job.id);
             hasUpdates = true;
           } else if (response.status >= 500) {
@@ -165,17 +201,16 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
           }
         } catch (error) {
           console.error(`Failed to check status for job ${job.id}:`, error);
-          
+
           // For network errors, remove jobs that consistently fail
           const jobIndex = history.findIndex((item: any) => item.id === job.id);
           if (jobIndex !== -1) {
             const job = history[jobIndex];
             const lastUpdated = job.lastUpdated ? new Date(job.lastUpdated) : new Date(job.createdAt);
             const hoursSinceLastUpdate = (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60);
-            
+
             if (hoursSinceLastUpdate > 1) {
               // Remove jobs that haven't been updated for over an hour
-              console.log(`Removing stale job ${job.id} that hasn't updated in ${hoursSinceLastUpdate.toFixed(1)} hours`);
               jobsToRemove.push(job.id);
               hasUpdates = true;
             } else {
@@ -226,7 +261,6 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
         const filteredHistory = history.filter((item: any) => item.id !== itemId);
         localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(filteredHistory));
         loadGalleryItems(); // Reload items to reflect deletion
-        console.log(`Manually deleted item ${itemId} from gallery`);
       }
     } catch (error) {
       console.error('Failed to delete gallery item:', error);
@@ -251,7 +285,7 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
     const failed = items.filter(item => item.status === 'failed').length;
     const videos = items.filter(item => item.format === 'video').length;
     const audio = items.filter(item => item.format === 'audio').length;
-    
+
     return { completed, processing, failed, videos, audio, total: items.length };
   };
 
@@ -288,7 +322,7 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
                 <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
-              
+
               {onCreateNew && (
                 <Button
                   size="sm"
@@ -327,7 +361,7 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
               Podcasts: {stats.audio}
             </Badge>
           </div>
-          
+
           {/* Last refresh time */}
           {lastRefreshTime && (
             <div className="text-xs text-gray-500 mt-2">
@@ -339,8 +373,8 @@ export default function GalleryModal({ open, onOpenChange, onCreateNew }: Galler
         {/* Actions Bar removed - no delete functionality */}
 
         {/* Main Content */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-scroll">
+          <div className="">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">

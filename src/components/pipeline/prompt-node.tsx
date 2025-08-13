@@ -1,5 +1,5 @@
 import { Handle, Position } from 'reactflow';
-import { Zap, Play } from 'lucide-react';
+import { Zap, Play, User } from 'lucide-react';
 import {
   CustomPromptSection,
   BasePromptSection,
@@ -9,7 +9,7 @@ import {
   PersonalDataPromptSection,
   OutputSelectorPromptSection
 } from './prompt-sections';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface PromptNodeData {
   configured: boolean;
@@ -26,12 +26,17 @@ interface PromptNodeData {
   onCustomTextChange?: (text: string) => void;
   selectedComponentType?: string;
   backendHealthStatus?: 'checking' | 'healthy' | 'unhealthy' | 'unknown';
+  // Name fields for personalization
+  firstName?: string;
+  lastName?: string;
+  onNameChange?: (firstName: string, lastName: string) => void;
   _immediateUpdate?: boolean;
   _deletedNodeId?: string;
   _updateTimestamp?: number;
   evidenceData?: {
     summary?: string;
     extractedGuidelines?: string[];
+    fileContent?: string;
   };
   styleData?: {
     tone?: string;
@@ -46,10 +51,40 @@ interface PromptNodeData {
     keyPhrases?: string[];
     targetAudience?: string;
     contentStructure?: string;
+    customPrompt?: string;
   };
   personalData?: {
+    firstName?: string;
+    lastName?: string;
+    customInstructions?: string;
     averageDailySteps?: number;
     averageHeartRate?: number;
+    age?: number;
+    biologicalSex?: string;
+    heightCm?: number;
+    weightKg?: number;
+    fitnessLevel?: string;
+    healthGoals?: string[];
+    exercisePreferences?: string[];
+    sleepSchedule?: string;
+    activeTimeOfDay?: string;
+    weeklyActivityConsistency?: string;
+    fitnessGoals?: string;
+    sleepHoursPerNight?: number;
+    activeEnergyBurned?: number;
+    exerciseMinutesPerWeek?: number;
+    restingHeartRate?: number;
+    vo2Max?: number;
+    walkingHeartRateAverage?: number;
+    workoutDaysPerWeek?: number;
+    bodyMassIndex?: number;
+    bloodGlucose?: number;
+    waterIntakeLiters?: number;
+    workoutTypes?: string[];
+    mostActiveTimeOfDay?: string;
+    heartRateVariability?: number;
+    bloodPressureSystolic?: number;
+    bloodPressureDiastolic?: number;
   };
   visualStylingData?: {
     videoStyle?: {
@@ -70,6 +105,7 @@ interface PromptNodeData {
     };
     healthFocus?: string;
     targetDemographic?: string;
+    customPrompt?: string;
   };
   outputSelectorData?: {
     selectedFormat?: string;
@@ -77,6 +113,10 @@ interface PromptNodeData {
 }
 
 export function PromptNode({ data, selected }: { data: PromptNodeData; selected?: boolean }) {
+  // Local state for name inputs
+  const [firstName, setFirstName] = useState(data.firstName || '');
+  const [lastName, setLastName] = useState(data.lastName || '');
+
   // Use the connected components with IDs for more reliable rendering
   const connectedComponentsWithIds = data.connectedComponentsWithIds || [];
   const hasAnyConnections = connectedComponentsWithIds.length > 0;
@@ -88,11 +128,33 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
   const immediateKey = data._immediateUpdate ? `immediate-${data._updateTimestamp}` : '';
   const deletedKey = data._deletedNodeId ? `deleted-${data._deletedNodeId}` : '';
 
+  // Handle name changes
+  const handleNameChange = (newFirstName: string, newLastName: string) => {
+    setFirstName(newFirstName);
+    setLastName(newLastName);
+    if (data.onNameChange) {
+      data.onNameChange(newFirstName, newLastName);
+    }
+  };
+
   // Generate the real-time MCP prompt
   const generateRealTimePrompt = () => {
     if (!hasAnyConnections) return '';
     
-    let finalPrompt = "You are a health content generation assistant. Create personalized health content using the following data:\n\n";
+    // Extract user name from prompt builder inputs (not personal data)
+    const userName = (firstName || lastName) 
+      ? [firstName, lastName].filter(Boolean).join(' ')
+      : null;
+    
+    let finalPrompt = "You are a health content generation assistant. ";
+    
+    if (userName) {
+      finalPrompt += `Create personalized health content specifically for ${userName}. `;
+      finalPrompt += `Throughout the content, address ${userName} directly and make all advice personally relevant to them. `;
+      finalPrompt += `Use the following comprehensive data about ${userName} to maximize personalization:\n\n`;
+    } else {
+      finalPrompt += "Create personalized health content using the following data:\n\n";
+    }
     
     // Add evidence data if connected
     if (connectedComponentsWithIds.some(c => c.type === 'evidence-input') && data.evidenceData) {
@@ -219,6 +281,11 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
       if (data.personalData.mostActiveTimeOfDay) finalPrompt += `Most Active: ${data.personalData.mostActiveTimeOfDay}\n`;
       if (data.personalData.weeklyActivityConsistency) finalPrompt += `Activity Consistency: ${data.personalData.weeklyActivityConsistency}\n`;
       
+      // Custom Instructions
+      if (data.personalData.customInstructions) {
+        finalPrompt += `\nCustom Instructions: ${data.personalData.customInstructions}\n`;
+      }
+      
       finalPrompt += `\n`;
     }
     
@@ -237,14 +304,39 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
     return finalPrompt.trim();
   };
 
-  useEffect(() => {
-    console.log("ConnectedComponents with ID", data.connectedComponentsWithIds)
-  }, [data.connectedComponentsWithIds]);
+  // Helper to check if a connected component is configured
+  const isConnectedComponentConfigured = (componentType: string) => {
+    switch (componentType) {
+      case 'evidence-input':
+        return data.evidenceData !== null && data.evidenceData !== undefined && 
+               data.evidenceData.fileContent && data.evidenceData.fileContent.trim().length > 0;
+      case 'style-personalization':
+        return data.styleData !== null && data.styleData !== undefined;
+      case 'visual-styling':
+        return data.visualStylingData !== null && data.visualStylingData !== undefined;
+      case 'personal-data':
+        return data.personalData !== null && data.personalData !== undefined;
+      case 'output-selector':
+        return data.outputSelectorData !== null && data.outputSelectorData !== undefined;
+      default:
+        return false;
+    }
+  };
+
+  // Check if all connected components are configured
+  const areAllConnectedComponentsConfigured = () => {
+    if (!Array.isArray(connectedComponentsWithIds) || connectedComponentsWithIds.length === 0) {
+      return true; // No connections means no configuration requirements
+    }
+    return connectedComponentsWithIds.every(component => 
+      component?.type ? isConnectedComponentConfigured(component.type) : false
+    );
+  };
 
   return (
     <div className="relative group">
       <div
-        className={`bg-gradient-to-br from-purple-600 to-purple-700 p-6 rounded-xl shadow-lg border border-purple-400/20 w-[500px] hover:shadow-purple-500/20 hover:shadow-xl transition-all ${selected ? 'ring-2 ring-blue-400' : ''
+        className={`bg-gradient-to-br from-purple-600 to-purple-700 p-6 rounded-xl shadow-lg border border-purple-400/20 w-[650px] hover:shadow-purple-500/20 hover:shadow-xl transition-all ${selected ? 'ring-2 ring-blue-400' : ''
           }`}
       >
         {/* Input handles for connecting components */}
@@ -259,15 +351,52 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
           <h3 className="font-medium text-white text-lg">AI Prompt Builder</h3>
         </div>
 
+        {/* Name Input Section */}
+        <div className="mb-4 bg-purple-500/20 border border-purple-400/30 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-3">
+            <User size={16} className="text-purple-300" />
+            <span className="text-purple-100 font-medium text-sm">Personalization</span>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <input
+                type="text"
+                placeholder="First name"
+                value={firstName}
+                onChange={(e) => handleNameChange(e.target.value, lastName)}
+                className="w-full bg-purple-600/20 border border-purple-400/30 rounded px-2 py-1 text-purple-100 placeholder-purple-300/60 text-xs focus:outline-none focus:border-purple-300 focus:bg-purple-600/30"
+              />
+            </div>
+            <div>
+              <input
+                type="text"
+                placeholder="Last name"
+                value={lastName}
+                onChange={(e) => handleNameChange(firstName, e.target.value)}
+                className="w-full bg-purple-600/20 border border-purple-400/30 rounded px-2 py-1 text-purple-100 placeholder-purple-300/60 text-xs focus:outline-none focus:border-purple-300 focus:bg-purple-600/30"
+              />
+            </div>
+          </div>
+          
+          {/* Show current personalization info */}
+          {(firstName || lastName) && (
+            <div className="flex items-center gap-2 mt-2">
+              <div className="w-2 h-2 bg-purple-300 rounded-full"></div>
+              <span className="text-purple-200 text-xs">
+                Creating content for: {[firstName, lastName].filter(Boolean).join(' ')}
+              </span>
+            </div>
+          )}
+        </div>
+
+
 
         {/* Prompt Sections - Grow with content */}
         <div key={`prompt-sections-${connectionsKey}-${immediateKey}-${deletedKey}-${data._updateTimestamp || 0}`} className="mb-4">
           {/* Always show the base prompt */}
           <BasePromptSection>
-            <div className="text-purple-300 font-medium mb-1">👋 Getting Started</div>
-            You are a health content generation assistant that works with data providers.
-
-            Connect components to collect data that will be passed to an MCP server.
+Generate content based on the following:
           </BasePromptSection>
           
           {/* Show connected components as additional sections */}
@@ -332,22 +461,8 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
           <div className="flex justify-center">
             <button
               onClick={data.onGenerate}
-              disabled={
-                connectedComponentsWithIds.length === 0 || 
-                data.backendHealthStatus === 'unhealthy' || 
-                data.backendHealthStatus === 'unknown' ||
-                data.backendHealthStatus === 'checking'
-              }
-              className="bg-purple-500 hover:bg-purple-400 disabled:bg-purple-600/50 disabled:cursor-not-allowed cursor-pointer text-white px-6 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-colors"
-              title={
-                data.backendHealthStatus === 'unhealthy' 
-                  ? 'Service unavailable - The backend service is offline. Click Settings (top-right) to check your configuration and ensure the backend is running.'
-                  : data.backendHealthStatus === 'unknown' || data.backendHealthStatus === 'checking'
-                  ? 'Service status unknown - Checking backend service health. Please wait or click Settings to verify configuration.'
-                  : connectedComponentsWithIds.length === 0
-                  ? 'Connect components to generate content'
-                  : 'Generate personalized content'
-              }
+              className="bg-purple-500 hover:bg-purple-400 cursor-pointer text-white px-6 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-colors"
+              title="Generate personalized content - click to proceed or get detailed error messages"
             >
               <Play size={16} />
               Generate Content

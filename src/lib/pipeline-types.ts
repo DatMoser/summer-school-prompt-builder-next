@@ -113,6 +113,9 @@ export interface VisualStylingData {
 }
 
 export interface PersonalHealthData {
+  // Personal Instructions
+  customInstructions?: string; // User's custom health-related instructions
+  
   // Basic Demographics & Goals (Apple Health profile data)
   age: number; // Birth date → calculated age
   biologicalSex: string; // "Male", "Female", "Other" - Apple Health profile
@@ -150,4 +153,5 @@ export interface PersonalHealthData {
 
 export interface OutputSelectorData {
   selectedFormat: 'video' | 'podcast';
+  provider?: 'openai' | 'gemini'; // Text generation provider for podcast
 }

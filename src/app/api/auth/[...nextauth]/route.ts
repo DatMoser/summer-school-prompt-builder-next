@@ -44,8 +44,6 @@ const authOptions: NextAuthOptions = {
     async jwt({ token, account, user }) {
       // Initial sign in
       if (account && user) {
-        console.log('Initial sign in, storing tokens');
-        console.log('Account scopes:', account.scope);
         return {
           ...token,
           accessToken: account.access_token,
@@ -56,12 +54,10 @@ const authOptions: NextAuthOptions = {
 
       // Return previous token if the access token has not expired yet
       if (Date.now() < (token.expiresAt || 0)) {
-        console.log('Access token still valid');
         return token;
       }
 
       // Access token has expired, try to update it
-      console.log('Access token expired, refreshing...');
       return await refreshAccessToken(token);
     },
     async session({ session, token }) {

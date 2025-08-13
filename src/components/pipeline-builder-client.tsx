@@ -1,0 +1,1427 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { Settings, Images, HelpCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import type { EvidenceData, OutputSelectorData, PersonalHealthData, PipelineConnection, PipelineNode, StyleData, VisualStylingData } from "../lib/pipeline-types";
+import BackendClient from "../lib/backend-client";
+import CanvasWorkspace from "./pipeline/canvas-workspace";
+import ComponentSidebar from "./pipeline/component-sidebar";
+import ConfirmationModal from "./pipeline/modals/confirmation-modal";
+import EvidenceInputModal from "./pipeline/modals/evidence-input-modal";
+import LoadingModal from "./pipeline/modals/loading-modal";
+import OutputSelectorModal from "./pipeline/modals/output-selector-modal";
+import PersonalDataModal from "./pipeline/modals/personal-data-modal";
+import SettingsModal from "./pipeline/modals/settings-modal";
+import StylePersonalizationModal from "./pipeline/modals/style-personalization-modal";
+import VisualStylingModal from "./pipeline/modals/visual-styling-modal";
+import ProcessingModal, { GenerationResult } from "./pipeline/modals/processing-modal";
+import GalleryModal from "./gallery/gallery-modal";
+import TitleInputModal from "./pipeline/modals/title-input-modal";
+import HelpModal from "./pipeline/modals/help-modal";
+import { Button } from "./ui/button";
+
+export default function PipelineBuilder() {
+  // Initialize state with lazy initialization to check localStorage first
+  const [nodes, setNodes] = useState<PipelineNode[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedNodes = localStorage.getItem('pipeline-builder-nodes');
+        if (savedNodes) {
+          const parsed = JSON.parse(savedNodes);
+          return parsed;
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved nodes:', error);
+      }
+    }
+
+    // Default state if no saved data
+    // console.log('🎆 Initial load: Using default prompt node');
+    return [
+      {
+        id: 'prompt-1',
+        type: 'prompt',
+        position: { x: 400, y: 300 },
+        data: {
+          configured: true,
+          title: 'AI Prompt Builder',
+          description: 'Build and edit AI prompt',
+          prompt: 'Generate content based on the following:',
+          connectedComponents: [],
+        },
+      }
+    ];
+  });
+
+  useEffect(() => {
+    // Track node changes
+  }, [nodes]);
+
+
+  const [connections, setConnections] = useState<PipelineConnection[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedConnections = localStorage.getItem('pipeline-builder-connections');
+        if (savedConnections) {
+          const parsed = JSON.parse(savedConnections);
+          // console.log('🔗 Initial load: Found saved connections in localStorage:', parsed.length);
+          return parsed;
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved connections:', error);
+      }
+    }
+
+    return [];
+  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Modal states
+  const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
+  const [styleModalOpen, setStyleModalOpen] = useState(false);
+  const [visualStylingModalOpen, setVisualStylingModalOpen] = useState(false);
+  const [personalDataModalOpen, setPersonalDataModalOpen] = useState(false);
+  const [outputSelectorModalOpen, setOutputSelectorModalOpen] = useState(false);
+  const [confirmationModalOpen, setConfirmationModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [loadingModalOpen, setLoadingModalOpen] = useState(false);
+  const [processingModalOpen, setProcessingModalOpen] = useState(false);
+  const [galleryModalOpen, setGalleryModalOpen] = useState(false);
+  const [titleInputModalOpen, setTitleInputModalOpen] = useState(false);
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
+  const [currentGenerationFormat, setCurrentGenerationFormat] = useState<'video' | 'audio'>('video');
+  const [currentGenerationTitle, setCurrentGenerationTitle] = useState<string>('');
+
+  // Data states with lazy initialization from localStorage
+  const [evidenceData, setEvidenceData] = useState<EvidenceData | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-evidence-data');
+        if (saved) {
+          // console.log('📊 Initial load: Found saved evidence data');
+          return JSON.parse(saved);
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved evidence data:', error);
+      }
+    }
+    return null;
+  });
+
+  const [styleData, setStyleData] = useState<StyleData | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-style-data');
+        if (saved) {
+          // console.log('🎨 Initial load: Found saved style data');
+          return JSON.parse(saved);
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved style data:', error);
+      }
+    }
+    return null;
+  });
+
+  const [visualStylingData, setVisualStylingData] = useState<VisualStylingData | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-visual-styling-data');
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved visual styling data:', error);
+      }
+    }
+    return null;
+  });
+
+  const [personalData, setPersonalData] = useState<PersonalHealthData | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-personal-data');
+        if (saved) {
+          // console.log('👨‍⚕️ Initial load: Found saved personal data');
+          return JSON.parse(saved);
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved personal data:', error);
+      }
+    }
+    return null;
+  });
+
+  const [outputSelectorData, setOutputSelectorData] = useState<OutputSelectorData | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-output-selector-data');
+        if (saved) {
+          // console.log('📺 Initial load: Found saved output selector data');
+          return JSON.parse(saved);
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved output selector data:', error);
+      }
+    }
+    return null;
+  });
+
+  const [selectedService, setSelectedService] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-selected-service');
+        if (saved) {
+          // console.log('⚙️ Initial load: Found saved selected service:', saved);
+          return saved;
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved selected service:', error);
+      }
+    }
+    return 'gemini';
+  });
+
+  const [customApiKey, setCustomApiKey] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-custom-api-key');
+        if (saved) {
+          // console.log('🔑 Initial load: Found saved custom API key');
+          return saved;
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved custom API key:', error);
+      }
+    }
+    return null;
+  });
+
+  // Backend credentials state
+  const [backendCredentials, setBackendCredentials] = useState<{
+    geminiApiKey?: string;
+    googleCloudCredentials?: any;
+    googleCloudProject?: string;
+    vertexAiRegion?: string;
+    gcsBucket?: string;
+    elevenlabsApiKey?: string;
+  }>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-backend-credentials');
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved backend credentials:', error);
+      }
+    }
+    return {};
+  });
+
+  // Backend health check state
+  const [backendHealthStatus, setBackendHealthStatus] = useState<'checking' | 'healthy' | 'unhealthy' | 'unknown'>('unknown');
+  const [lastBackendHealthCheck, setLastBackendHealthCheck] = useState<Date | null>(null);
+
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStatus, setGenerationStatus] = useState("");
+
+  const [selectedNodeForConfig, setSelectedNodeForConfig] = useState<string | null>(null);
+  const [selectedComponentType, setSelectedComponentType] = useState<string | null>(null);
+  const [hoveredComponentType, setHoveredComponentType] = useState<string | null>(null);
+  const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
+
+  // Prompt state with lazy initialization from localStorage
+  const [promptText, setPromptText] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-prompt-text');
+        if (saved) {
+          // console.log('📜 Initial load: Found saved prompt text');
+          return saved;
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved prompt text:', error);
+      }
+    }
+    return 'Generate content based on the following:';
+  });
+
+  // Name state for personalization (stored on prompt node)
+  const [firstName, setFirstName] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-first-name');
+        if (saved) {
+          return saved;
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved first name:', error);
+      }
+    }
+    return '';
+  });
+
+  const [lastName, setLastName] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-last-name');
+        if (saved) {
+          return saved;
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved last name:', error);
+      }
+    }
+    return '';
+  });
+
+  // Local storage keys
+  const STORAGE_KEYS = {
+    nodes: 'pipeline-builder-nodes',
+    connections: 'pipeline-builder-connections',
+    evidenceData: 'pipeline-builder-evidence-data',
+    styleData: 'pipeline-builder-style-data',
+    visualStylingData: 'pipeline-builder-visual-styling-data',
+    personalData: 'pipeline-builder-personal-data',
+    outputSelectorData: 'pipeline-builder-output-selector-data',
+    selectedService: 'pipeline-builder-selected-service',
+    customApiKey: 'pipeline-builder-custom-api-key',
+    promptText: 'pipeline-builder-prompt-text',
+    backendCredentials: 'pipeline-builder-backend-credentials',
+    firstName: 'pipeline-builder-first-name',
+    lastName: 'pipeline-builder-last-name',
+  };
+
+  // Save state to localStorage
+  const saveToLocalStorage = useCallback(() => {
+    try {
+      // console.log('💾 Attempting to save state to localStorage...', {
+      //   nodesCount: nodes.length,
+      //   connectionsCount: connections.length,
+      //   hasEvidenceData: !!evidenceData,
+      //   hasStyleData: !!styleData,
+      //   hasPersonalData: !!personalData,
+      //   hasOutputSelectorData: !!outputSelectorData,
+      //   selectedService,
+      //   hasCustomApiKey: !!customApiKey,
+      //   promptTextLength: promptText.length
+      // });
+
+      const nodesWithPositions = nodes.map(node => ({
+        ...node,
+        position: node.position // Ensure positions are explicitly saved
+      }));
+
+      // console.log('💾 About to save nodes:', nodesWithPositions.map(n => ({ id: n.id, type: n.type, position: n.position })));
+
+      localStorage.setItem(STORAGE_KEYS.nodes, JSON.stringify(nodesWithPositions));
+
+      // Verify what was actually saved
+      const savedData = localStorage.getItem(STORAGE_KEYS.nodes);
+      // const parsedSaved = JSON.parse(savedData!);
+      // console.log('📍 Verified saved positions:', parsedSaved.map((n: any) => ({ id: n.id, position: n.position })));
+      localStorage.setItem(STORAGE_KEYS.connections, JSON.stringify(connections));
+
+      if (evidenceData) {
+        localStorage.setItem(STORAGE_KEYS.evidenceData, JSON.stringify(evidenceData));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.evidenceData);
+      }
+      if (styleData) {
+        localStorage.setItem(STORAGE_KEYS.styleData, JSON.stringify(styleData));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.styleData);
+      }
+      if (visualStylingData) {
+        localStorage.setItem(STORAGE_KEYS.visualStylingData, JSON.stringify(visualStylingData));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.visualStylingData);
+      }
+      if (personalData) {
+        localStorage.setItem(STORAGE_KEYS.personalData, JSON.stringify(personalData));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.personalData);
+      }
+      if (outputSelectorData) {
+        localStorage.setItem(STORAGE_KEYS.outputSelectorData, JSON.stringify(outputSelectorData));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.outputSelectorData);
+      }
+
+      localStorage.setItem(STORAGE_KEYS.selectedService, selectedService);
+      if (customApiKey) {
+        localStorage.setItem(STORAGE_KEYS.customApiKey, customApiKey);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.customApiKey);
+      }
+      localStorage.setItem(STORAGE_KEYS.promptText, promptText);
+      localStorage.setItem(STORAGE_KEYS.backendCredentials, JSON.stringify(backendCredentials));
+      localStorage.setItem(STORAGE_KEYS.firstName, firstName);
+      localStorage.setItem(STORAGE_KEYS.lastName, lastName);
+
+      setLastSaveTime(new Date());
+      // console.log('✅ State successfully saved to localStorage');
+    } catch (error) {
+      console.error('❌ Failed to save state to localStorage:', error);
+    }
+  }, [nodes, connections, evidenceData, styleData, visualStylingData, personalData, outputSelectorData, selectedService, customApiKey, promptText, backendCredentials, firstName, lastName]);
+
+  // Load state from localStorage
+  const loadFromLocalStorage = useCallback(() => {
+    try {
+      // console.log('🔍 Checking localStorage for saved data...');
+
+      const savedNodes = localStorage.getItem(STORAGE_KEYS.nodes);
+      const savedConnections = localStorage.getItem(STORAGE_KEYS.connections);
+      const savedEvidenceData = localStorage.getItem(STORAGE_KEYS.evidenceData);
+      const savedStyleData = localStorage.getItem(STORAGE_KEYS.styleData);
+      const savedVisualStylingData = localStorage.getItem(STORAGE_KEYS.visualStylingData);
+      const savedPersonalData = localStorage.getItem(STORAGE_KEYS.personalData);
+      const savedOutputSelectorData = localStorage.getItem(STORAGE_KEYS.outputSelectorData);
+      const savedSelectedService = localStorage.getItem(STORAGE_KEYS.selectedService);
+      const savedCustomApiKey = localStorage.getItem(STORAGE_KEYS.customApiKey);
+      const savedPromptText = localStorage.getItem(STORAGE_KEYS.promptText);
+      const savedBackendCredentials = localStorage.getItem(STORAGE_KEYS.backendCredentials);
+
+      // console.log('📊 localStorage contents check:', {
+      //   hasNodes: !!savedNodes,
+      //   hasConnections: !!savedConnections,
+      //   hasEvidenceData: !!savedEvidenceData,
+      //   hasStyleData: !!savedStyleData,
+      //   hasPersonalData: !!savedPersonalData,
+      //   hasOutputSelectorData: !!savedOutputSelectorData,
+      //   hasSelectedService: !!savedSelectedService,
+      //   hasCustomApiKey: !!savedCustomApiKey,
+      //   hasPromptText: !!savedPromptText
+      // });
+
+      if (savedNodes) {
+        const parsedNodes = JSON.parse(savedNodes);
+        setNodes(parsedNodes);
+        // console.log('📝 Restored nodes from localStorage:', parsedNodes.length, 'nodes');
+      }
+
+      if (savedConnections) {
+        const parsedConnections = JSON.parse(savedConnections);
+        setConnections(parsedConnections);
+        // console.log('🔗 Restored connections from localStorage:', parsedConnections.length, 'connections');
+      }
+
+      if (savedEvidenceData) {
+        setEvidenceData(JSON.parse(savedEvidenceData));
+        // console.log('📊 Restored evidence data from localStorage');
+      }
+
+      if (savedStyleData) {
+        setStyleData(JSON.parse(savedStyleData));
+        // console.log('🎨 Restored style data from localStorage');
+      }
+
+      if (savedVisualStylingData) {
+        setVisualStylingData(JSON.parse(savedVisualStylingData));
+        // console.log('🎨 Restored visual styling data from localStorage');
+      }
+
+      if (savedPersonalData) {
+        setPersonalData(JSON.parse(savedPersonalData));
+        // console.log('👨‍⚕️ Restored personal data from localStorage');
+      }
+
+      if (savedOutputSelectorData) {
+        setOutputSelectorData(JSON.parse(savedOutputSelectorData));
+        // console.log('📺 Restored output selector data from localStorage');
+      }
+
+      if (savedSelectedService) {
+        setSelectedService(savedSelectedService);
+        // console.log('⚙️ Restored selected service from localStorage:', savedSelectedService);
+      }
+
+      if (savedCustomApiKey) {
+        setCustomApiKey(savedCustomApiKey);
+        // console.log('🔑 Restored custom API key from localStorage');
+      }
+
+      if (savedPromptText) {
+        setPromptText(savedPromptText);
+        // console.log('📜 Restored prompt text from localStorage');
+      }
+
+      if (savedBackendCredentials) {
+        setBackendCredentials(JSON.parse(savedBackendCredentials));
+        // console.log('🔑 Restored backend credentials from localStorage');
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to load state from localStorage:', error);
+    }
+  }, []);
+
+  // Clear localStorage (useful for development or if user wants to reset)
+  const clearLocalStorage = useCallback(() => {
+    try {
+      Object.values(STORAGE_KEYS).forEach(key => {
+        localStorage.removeItem(key);
+      });
+      
+      // Also clear gallery data
+      localStorage.removeItem('pipeline-builder-generation-history');
+      
+      // console.log('🗑️ Cleared all pipeline state and gallery data from localStorage');
+    } catch (error) {
+      console.error('❌ Failed to clear localStorage:', error);
+    }
+  }, []);
+
+  // Auto-save state changes with shorter delay for frequent updates
+  useEffect(() => {
+    // console.log('🔄 Auto-save triggered by state change');
+    const timeoutId = setTimeout(() => {
+      // console.log('⏰ Auto-save timer executing...');
+      saveToLocalStorage();
+    }, 300); // Shorter delay for more responsive saves
+
+    return () => {
+      // console.log('❌ Auto-save timer cleared');
+      clearTimeout(timeoutId);
+    };
+  }, [saveToLocalStorage]);
+
+  // Backend health check function
+  const checkBackendHealth = useCallback(async () => {
+    setBackendHealthStatus('checking');
+    
+    try {
+      // Use BackendClient's validateApiKey method which now uses /validate endpoint
+      const isValid = await BackendClient.validateApiKey();
+      
+      if (isValid) {
+        setBackendHealthStatus('healthy');
+      } else {
+        console.warn('Backend API key validation failed');
+        setBackendHealthStatus('unhealthy');
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error('Backend health check failed:', error.message);
+      } else {
+        console.error('Backend health check failed with unknown error:', error);
+      }
+      setBackendHealthStatus('unhealthy');
+    } finally {
+      setLastBackendHealthCheck(new Date());
+    }
+  }, []);
+
+  // Initial health check and periodic health checks
+  useEffect(() => {
+    checkBackendHealth();
+    
+    // Check health every 60 seconds
+    const interval = setInterval(checkBackendHealth, 60000);
+    return () => clearInterval(interval);
+  }, [checkBackendHealth]);
+  
+  // Debug: Log when component mounts to verify state loading
+  useEffect(() => {
+    // console.log('🚀 PipelineBuilder mounted with state:', {
+    //   nodesCount: nodes.length,
+    //   connectionsCount: connections.length,
+    //   hasEvidenceData: !!evidenceData,
+    //   hasStyleData: !!styleData,
+    //   hasPersonalData: !!personalData,
+    //   hasOutputSelectorData: !!outputSelectorData,
+    //   selectedService,
+    //   hasCustomApiKey: !!customApiKey
+    // });
+  }, []); // Empty dependency array ensures this runs only once on mount
+
+  // Debug: Track when nodes state changes
+  useEffect(() => {
+    // console.log('🔄 Pipeline Builder: Nodes state changed:', {
+    //   count: nodes.length,
+    //   positions: nodes.map(n => ({ id: n.id, type: n.type, position: n.position }))
+    // });
+    // console.log('💾 This should trigger auto-save...');
+  }, [nodes]);
+
+  // Save state when component unmounts or page is closed
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Save state before page unloads
+      saveToLocalStorage();
+    };
+
+    // Save on page unload
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Save on component unmount
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Save state on unmount
+      saveToLocalStorage();
+    };
+  }, [saveToLocalStorage]);
+
+  // Update connected components when connections change
+  useEffect(() => {
+
+    setNodes(prevNodes => {
+      const promptNode = prevNodes.find(n => n.type === 'prompt');
+      if (!promptNode) return prevNodes;
+
+      // Find connected component types - only include connections to existing nodes
+      const connectedComponentTypes = connections
+        .filter(conn => conn.target === promptNode.id)
+        .map(conn => {
+          // Look up source node from prevNodes (current state)
+          const sourceNode = prevNodes.find(n => n.id === conn.source);
+          if (!sourceNode) {
+            // console.log(`⚠️ Connection references deleted node: ${conn.source}, ignoring...`);
+            return null;
+          }
+          return sourceNode.type;
+        })
+        .filter((type): type is PipelineNode['type'] => type !== null);
+
+      // Also track connected components with their specific IDs - only include existing nodes
+      const connectedComponentsWithIds = connections
+        .filter(conn => conn.target === promptNode.id)
+        .map(conn => {
+          const sourceNode = prevNodes.find(n => n.id === conn.source);
+          if (!sourceNode) {
+            // console.log(`⚠️ Connection references deleted node: ${conn.source}, ignoring...`);
+            return null;
+          }
+          return { id: sourceNode.id, type: sourceNode.type };
+        })
+        .filter((item): item is { id: string, type: PipelineNode['type'] } => item !== null);
+
+      // Only update if the connected components actually changed
+      const currentConnectedComponents = promptNode.data.connectedComponents || [];
+      const currentConnectedComponentsWithIds = promptNode.data.connectedComponentsWithIds || [];
+
+      const typesChanged = JSON.stringify(currentConnectedComponents.sort()) !== JSON.stringify(connectedComponentTypes.sort());
+      const idsChanged = JSON.stringify(currentConnectedComponentsWithIds) !== JSON.stringify(connectedComponentsWithIds);
+
+      // Check if this is an immediate update from node deletion
+      const hasImmediateUpdate = promptNode.data._immediateUpdate;
+      const deletedNodeId = promptNode.data._deletedNodeId;
+
+
+      // Force update if we have an immediate update flag or if components changed
+      if (!typesChanged && !idsChanged && !hasImmediateUpdate) {
+        return prevNodes; // No change needed
+      }
+
+      // If we have an immediate update, force the update regardless of comparison
+      if (hasImmediateUpdate) {
+      }
+
+
+      // Update the prompt node's connected components
+      const updatedNodes = prevNodes.map(node =>
+        node.type === 'prompt'
+          ? {
+            ...node,
+            data: {
+              ...node.data,
+              // For immediate updates, keep the already-calculated data from handleNodeDelete
+              // For normal updates, use the newly calculated data
+              connectedComponents: hasImmediateUpdate ? node.data.connectedComponents : connectedComponentTypes,
+              connectedComponentsWithIds: hasImmediateUpdate ? node.data.connectedComponentsWithIds : connectedComponentsWithIds,
+              // Clear immediate update flags after processing
+              _immediateUpdate: undefined,
+              _deletedNodeId: undefined,
+              // Force re-render with new timestamp
+              _updateTimestamp: Date.now()
+            }
+          }
+          : node
+      );
+
+
+      return updatedNodes;
+    });
+  }, [connections, nodes]);
+
+  const handleNodeClick = (nodeId: string, nodeType: string) => {
+    setSelectedNodeForConfig(nodeId);
+    switch (nodeType) {
+      case 'evidence-input':
+        setEvidenceModalOpen(true);
+        break;
+      case 'style-personalization':
+        setStyleModalOpen(true);
+        break;
+      case 'visual-styling':
+        setVisualStylingModalOpen(true);
+        break;
+      case 'personal-data':
+        setPersonalDataModalOpen(true);
+        break;
+      case 'output-selector':
+        setOutputSelectorModalOpen(true);
+        break;
+      case 'prompt':
+        // Prompt node doesn't need a modal - it's editable inline
+        break;
+    }
+  };
+
+  const handlePromptChange = (newPrompt: string) => {
+    setPromptText(newPrompt);
+    // Update the prompt node's data
+    setNodes(prevNodes =>
+      prevNodes.map(node =>
+        node.type === 'prompt'
+          ? { ...node, data: { ...node.data, prompt: newPrompt } }
+          : node
+      )
+    );
+  };
+
+  const handleNameChange = (newFirstName: string, newLastName: string) => {
+    setFirstName(newFirstName);
+    setLastName(newLastName);
+  };
+
+  // Generate the final MCP-compatible prompt
+  const generateMCPPrompt = () => {
+    const promptNode = nodes.find(n => n.type === 'prompt');
+    const connectedComponents = promptNode?.data.connectedComponentsWithIds || [];
+    
+    // Extract user name from prompt builder inputs for maximum personalization
+    const userName = (firstName || lastName) 
+      ? [firstName, lastName].filter(Boolean).join(' ')
+      : null;
+    
+    let finalPrompt = "You are a health content generation assistant. ";
+    
+    if (userName) {
+      finalPrompt += `Create personalized health content specifically for ${userName}. `;
+      finalPrompt += `Throughout the content, address ${userName} directly and make all advice personally relevant to them. `;
+      finalPrompt += `Use the following comprehensive data about ${userName} to maximize personalization:\n\n`;
+    } else {
+      finalPrompt += "Create personalized health content using the following data:\n\n";
+    }
+    
+    // Add evidence data if connected
+    if (connectedComponents.some(c => c.type === 'evidence-input') && evidenceData) {
+      finalPrompt += `EVIDENCE-BASED GUIDELINES:\n`;
+      if (evidenceData.fileName) {
+        finalPrompt += `Source File: ${evidenceData.fileName}\n`;
+      }
+      if (evidenceData.summary) {
+        finalPrompt += `Summary: ${evidenceData.summary}\n`;
+      }
+      finalPrompt += `\nKEY GUIDELINES:\n${evidenceData.extractedGuidelines.join('\n- ')}\n\n`;
+      if (evidenceData.fileContent) {
+        finalPrompt += `FULL SOURCE CONTENT:\n${evidenceData.fileContent}\n\n`;
+      }
+    }
+    
+    // Add style data if connected
+    if (connectedComponents.some(c => c.type === 'style-personalization') && styleData) {
+      finalPrompt += `COMMUNICATION STYLE:\n`;
+      
+      // Basic style dimensions
+      if (styleData.tone) finalPrompt += `Tone: ${styleData.tone}\n`;
+      if (styleData.pace) finalPrompt += `Pace: ${styleData.pace}\n`;
+      if (styleData.vocabulary) finalPrompt += `Vocabulary: ${styleData.vocabulary}\n`;
+      
+      // Include advanced fields if they have values
+      if (styleData.energy) finalPrompt += `Energy: ${styleData.energy}\n`;
+      if (styleData.formality) finalPrompt += `Formality: ${styleData.formality}\n`;
+      if (styleData.humor) finalPrompt += `Humor: ${styleData.humor}\n`;
+      if (styleData.empathy) finalPrompt += `Empathy: ${styleData.empathy}\n`;
+      if (styleData.confidence) finalPrompt += `Confidence: ${styleData.confidence}\n`;
+      if (styleData.storytelling) finalPrompt += `Storytelling: ${styleData.storytelling}\n`;
+      
+      // Key phrases
+      if (styleData.keyPhrases?.length) {
+        finalPrompt += `\nKEY PHRASES TO USE:\n${styleData.keyPhrases.join(', ')}\n`;
+      }
+      
+      // Audience and structure
+      if (styleData.targetAudience) finalPrompt += `\nTARGET AUDIENCE:\n${styleData.targetAudience}\n`;
+      if (styleData.contentStructure) finalPrompt += `CONTENT STRUCTURE:\n${styleData.contentStructure}\n`;
+      
+      // CRITICAL: Add the custom prompt field that was missing
+      if (styleData.customPrompt) {
+        finalPrompt += `\nADDITIONAL STYLE INSTRUCTIONS:\n${styleData.customPrompt}\n`;
+      }
+      
+      // Add metadata for transparency
+      if (styleData.sourceDescription) {
+        finalPrompt += `\nStyle Source: ${styleData.sourceDescription}\n`;
+      }
+      if (styleData.isAIGenerated) {
+        finalPrompt += `Style Generation Method: AI-Generated\n`;
+      }
+      
+      finalPrompt += `\n`;
+    }
+    
+    // Add personal data if connected
+    if (connectedComponents.some(c => c.type === 'personal-data') && personalData) {
+      finalPrompt += `PERSONAL HEALTH PROFILE:\n`;
+      
+      // Add user name from prompt builder if available
+      if (userName) {
+        finalPrompt += `CLIENT NAME: ${userName}\n`;
+        finalPrompt += `(IMPORTANT: Use this name throughout the content for direct, personal communication)\n`;
+      }
+      
+      // CRITICAL: Add custom instructions that were missing
+      if (personalData.customInstructions) {
+        finalPrompt += `\nCUSTOM HEALTH INSTRUCTIONS:\n${personalData.customInstructions}\n\n`;
+      }
+      
+      // Basic demographics
+      if (personalData.age) finalPrompt += `Age: ${personalData.age} years\n`;
+      if (personalData.biologicalSex) finalPrompt += `Biological Sex: ${personalData.biologicalSex}\n`;
+      if (personalData.heightCm) finalPrompt += `Height: ${personalData.heightCm} cm\n`;
+      if (personalData.weightKg) finalPrompt += `Weight: ${personalData.weightKg} kg\n`;
+      
+      // Calculate BMI if height and weight are available
+      if (personalData.heightCm && personalData.weightKg) {
+        const bmi = personalData.weightKg / Math.pow(personalData.heightCm / 100, 2);
+        finalPrompt += `BMI: ${bmi.toFixed(1)}\n`;
+      }
+      
+      // Fitness goals - very important for personalization
+      if (personalData.fitnessGoals) {
+        finalPrompt += `\nFITNESS GOALS:\n${personalData.fitnessGoals}\n`;
+      }
+      
+      // Core activity metrics
+      finalPrompt += `\nACTIVITY METRICS:\n`;
+      if (personalData.averageDailySteps) finalPrompt += `Daily Steps: ${personalData.averageDailySteps.toLocaleString()}\n`;
+      if (personalData.averageHeartRate) finalPrompt += `Average Heart Rate: ${personalData.averageHeartRate} BPM\n`;
+      if (personalData.sleepHoursPerNight) finalPrompt += `Sleep: ${personalData.sleepHoursPerNight} hours/night\n`;
+      if (personalData.activeEnergyBurned) finalPrompt += `Active Calories: ${personalData.activeEnergyBurned}/day\n`;
+      if (personalData.exerciseMinutesPerWeek) finalPrompt += `Exercise: ${personalData.exerciseMinutesPerWeek} minutes/week\n`;
+      if (personalData.waterIntakeLiters) finalPrompt += `Water Intake: ${personalData.waterIntakeLiters}L/day\n`;
+      
+      // Advanced health metrics if available
+      const hasAdvancedMetrics = personalData.restingHeartRate || personalData.vo2Max || 
+                                personalData.walkingHeartRateAverage || personalData.heartRateVariability ||
+                                personalData.bloodPressureSystolic || personalData.bloodGlucose;
+      
+      if (hasAdvancedMetrics) {
+        finalPrompt += `\nADVANCED HEALTH METRICS:\n`;
+        if (personalData.restingHeartRate) finalPrompt += `Resting Heart Rate: ${personalData.restingHeartRate} BPM\n`;
+        if (personalData.vo2Max) finalPrompt += `VO2 Max: ${personalData.vo2Max} ml/kg/min\n`;
+        if (personalData.walkingHeartRateAverage) finalPrompt += `Walking Heart Rate: ${personalData.walkingHeartRateAverage} BPM\n`;
+        if (personalData.heartRateVariability) finalPrompt += `Heart Rate Variability: ${personalData.heartRateVariability}ms\n`;
+        if (personalData.bloodPressureSystolic && personalData.bloodPressureDiastolic) {
+          finalPrompt += `Blood Pressure: ${personalData.bloodPressureSystolic}/${personalData.bloodPressureDiastolic} mmHg\n`;
+        }
+        if (personalData.bloodGlucose) finalPrompt += `Blood Glucose: ${personalData.bloodGlucose} mg/dL\n`;
+      }
+      
+      // Activity patterns and preferences
+      if (personalData.workoutTypes?.length) {
+        finalPrompt += `\nWORKOUT PREFERENCES:\n${personalData.workoutTypes.join(', ')}\n`;
+      }
+      if (personalData.mostActiveTimeOfDay) {
+        finalPrompt += `Most Active Time: ${personalData.mostActiveTimeOfDay}\n`;
+      }
+      if (personalData.weeklyActivityConsistency) {
+        finalPrompt += `Activity Consistency: ${personalData.weeklyActivityConsistency}\n`;
+      }
+      
+      // Data source information
+      if (personalData.sourceDescription) {
+        finalPrompt += `\nData Source: ${personalData.sourceDescription}\n`;
+      }
+      if (personalData.lastSyncDate) {
+        const syncDate = new Date(personalData.lastSyncDate);
+        finalPrompt += `Last Updated: ${syncDate.toLocaleDateString()}\n`;
+      }
+      
+      finalPrompt += `\nUse this comprehensive health profile to create highly personalized content and recommendations.\n\n`;
+    }
+    
+    // Add visual styling if connected
+    if (connectedComponents.some(c => c.type === 'visual-styling') && visualStylingData) {
+      finalPrompt += `VISUAL STYLING REQUIREMENTS:\n`;
+      
+      // Add video styling for video format
+      if (outputSelectorData?.selectedFormat === 'video' && visualStylingData.videoStyle) {
+        const video = visualStylingData.videoStyle;
+        finalPrompt += `VIDEO STYLING:\n`;
+        finalPrompt += `Visual Theme: ${video.visualTheme}\n`;
+        finalPrompt += `Color Scheme: ${video.colorScheme}\n`;
+        finalPrompt += `Typography: ${video.fontStyle} fonts\n`;
+        finalPrompt += `Layout: ${video.layoutStyle} composition\n`;
+        finalPrompt += `Background: ${video.backgroundStyle} style\n`;
+        finalPrompt += `Animation Level: ${video.animationLevel}\n\n`;
+      }
+      
+      // Add podcast thumbnail styling for audio format
+      if (outputSelectorData?.selectedFormat === 'podcast' && visualStylingData.podcastThumbnail) {
+        const podcast = visualStylingData.podcastThumbnail;
+        finalPrompt += `PODCAST THUMBNAIL STYLING:\n`;
+        finalPrompt += `Design Theme: ${podcast.designTheme}\n`;
+        finalPrompt += `Color Scheme: ${podcast.colorScheme}\n`;
+        finalPrompt += `Typography: ${podcast.fontStyle} fonts\n`;
+        finalPrompt += `Layout Type: ${podcast.layoutType}\n`;
+        finalPrompt += `Background: ${podcast.backgroundStyle} style\n`;
+        if (podcast.iconStyle && podcast.iconStyle !== 'none') {
+          finalPrompt += `Icon Style: ${podcast.iconStyle} elements\n`;
+        }
+        finalPrompt += `\n`;
+      }
+      
+      // Add custom colors if specified
+      if (visualStylingData.customColors && 
+          (visualStylingData.videoStyle?.colorScheme === 'custom' || 
+           visualStylingData.podcastThumbnail?.colorScheme === 'custom')) {
+        finalPrompt += `CUSTOM COLOR PALETTE:\n`;
+        finalPrompt += `Primary: ${visualStylingData.customColors.primary}\n`;
+        finalPrompt += `Secondary: ${visualStylingData.customColors.secondary}\n`;
+        finalPrompt += `Accent: ${visualStylingData.customColors.accent}\n`;
+        finalPrompt += `Background: ${visualStylingData.customColors.background}\n`;
+        finalPrompt += `Text: ${visualStylingData.customColors.text}\n\n`;
+      }
+      
+      // Add branding options if specified
+      if (visualStylingData.branding) {
+        finalPrompt += `BRANDING REQUIREMENTS:\n`;
+        if (visualStylingData.branding.includeLogo) {
+          finalPrompt += `Logo Position: ${visualStylingData.branding.logoPosition}\n`;
+        }
+        if (visualStylingData.branding.brandColors) {
+          finalPrompt += `Use Brand Colors: Yes\n`;
+        }
+        finalPrompt += `\n`;
+      }
+      
+      // Content focus and demographic
+      if (visualStylingData.healthFocus) {
+        finalPrompt += `Health Focus Area: ${visualStylingData.healthFocus}\n`;
+      }
+      if (visualStylingData.targetDemographic) {
+        finalPrompt += `Target Demographic: ${visualStylingData.targetDemographic}\n`;
+      }
+      
+      // Custom visual instructions
+      if (visualStylingData.customPrompt) {
+        finalPrompt += `\nCUSTOM VISUAL INSTRUCTIONS:\n${visualStylingData.customPrompt}\n`;
+      }
+      
+      // Add metadata
+      if (visualStylingData.sourceDescription) {
+        finalPrompt += `\nVisual Style Source: ${visualStylingData.sourceDescription}\n`;
+      }
+      
+      finalPrompt += `\n`;
+    }
+    
+    // Add output format if connected
+    if (connectedComponents.some(c => c.type === 'output-selector') && outputSelectorData) {
+      finalPrompt += `OUTPUT FORMAT: ${outputSelectorData.selectedFormat}\n\n`;
+      finalPrompt += `Generate content optimized for ${outputSelectorData.selectedFormat} format.\n\n`;
+    }
+    
+    // Add custom instructions and personalization directives
+    if (promptNode?.data.customText) {
+      finalPrompt += `ADDITIONAL INSTRUCTIONS:\n${promptNode.data.customText}\n\n`;
+    }
+    
+    // Enhanced personalization instructions
+    finalPrompt += `CONTENT CREATION GUIDELINES:\n`;
+    if (userName) {
+      finalPrompt += `- Address ${userName} directly throughout the content using their name\n`;
+      finalPrompt += `- Make all recommendations specific to ${userName}'s profile, goals, and health data\n`;
+      finalPrompt += `- Reference ${userName}'s personal metrics and preferences when providing advice\n`;
+      finalPrompt += `- Create content that feels like it was written specifically for ${userName}, not generic health advice\n`;
+      finalPrompt += `- Use phrases like "Based on your data, ${userName}..." or "${userName}, your specific goals suggest..."\n`;
+    } else {
+      finalPrompt += `- Create highly personalized content based on the provided health profile\n`;
+      finalPrompt += `- Make all recommendations specific to the user's goals and health data\n`;
+    }
+    finalPrompt += `- Follow evidence-based practices and incorporate the communication style preferences\n`;
+    finalPrompt += `- Ensure content is comprehensive, actionable, and personally relevant\n`;
+    finalPrompt += `- Adapt content format and visual styling to the specified output requirements\n\n`;
+    
+    return finalPrompt.trim();
+  };
+
+  const handleGenerate = () => {
+    const errors = [];
+    const warnings = [];
+    
+    // Check if we have a prompt node
+    const promptNode = nodes.find(n => n.type === 'prompt');
+    if (!promptNode) {
+      errors.push('❌ No prompt component found. Please add an AI Prompt Builder component.');
+    } else {
+      // Check for connections
+      const connectedComponents = promptNode.data.connectedComponentsWithIds || [];
+      const hasConnections = connections.some(conn => conn.target === promptNode.id);
+      
+      if (!hasConnections || connectedComponents.length === 0) {
+        errors.push('❌ No components connected to AI Prompt Builder. Please connect at least one component.');
+      } else {
+        // Check individual component configurations
+        const hasOutputSelector = connectedComponents.some(c => c.type === 'output-selector');
+        const hasEvidenceInput = connectedComponents.some(c => c.type === 'evidence-input');
+        const hasStylePersonalization = connectedComponents.some(c => c.type === 'style-personalization');
+        const hasVisualStyling = connectedComponents.some(c => c.type === 'visual-styling');
+        const hasPersonalData = connectedComponents.some(c => c.type === 'personal-data');
+        
+        // Check Output Selector (required)
+        if (!hasOutputSelector) {
+          errors.push('❌ No Output Selector connected. Please connect and configure an Output Selector to specify video or podcast format.');
+        } else if (!outputSelectorData) {
+          errors.push('❌ Output Selector not configured. Please configure the Output Selector to specify generation format.');
+        }
+        
+        // Check Evidence Input (recommended)
+        if (!hasEvidenceInput) {
+          warnings.push('⚠️ No Evidence-Based Input connected. Content will be generated without evidence guidelines.');
+        } else if (!evidenceData || !evidenceData.fileContent || evidenceData.fileContent.trim().length === 0) {
+          errors.push('❌ Evidence-Based Input connected but not configured. Please upload and process evidence documents.');
+        }
+        
+        // Check Style Personalization (optional)
+        if (hasStylePersonalization && (!styleData)) {
+          errors.push('❌ Conversational Style connected but not configured. Please configure communication style settings.');
+        }
+        
+        // Check Visual Styling (optional)
+        if (hasVisualStyling && (!visualStylingData)) {
+          errors.push('❌ Visual Styling connected but not configured. Please configure visual appearance settings.');
+        }
+        
+        // Check Personal Data (optional)
+        if (hasPersonalData && (!personalData)) {
+          errors.push('❌ Personal Health Profile connected but not configured. Please configure personal health data.');
+        }
+      }
+    }
+    
+    // Show comprehensive error/warning message if there are issues
+    if (errors.length > 0 || warnings.length > 0) {
+      let message = '';
+      
+      if (errors.length > 0) {
+        message += 'Configuration Issues Found:\n\n';
+        message += errors.join('\n') + '\n';
+      }
+      
+      if (warnings.length > 0) {
+        if (errors.length > 0) message += '\n';
+        message += 'Warnings:\n\n';
+        message += warnings.join('\n') + '\n';
+      }
+      
+      if (errors.length > 0) {
+        message += '\nPlease fix the errors above before generating content.';
+        alert(message);
+        return;
+      } else {
+        // Only warnings - ask for confirmation
+        message += '\nDo you want to proceed with content generation despite these warnings?';
+        if (!confirm(message)) {
+          return;
+        }
+      }
+    }
+
+    setConfirmationModalOpen(true);
+  };
+
+  const handleConfirmGeneration = async () => {
+    setConfirmationModalOpen(false);
+    
+    const format = outputSelectorData?.selectedFormat || 'video';
+    setCurrentGenerationFormat(format === 'podcast' ? 'audio' : 'video');
+    setTitleInputModalOpen(true);
+  };
+
+  const handleTitleConfirm = (title: string) => {
+    setCurrentGenerationTitle(title);
+    setTitleInputModalOpen(false);
+    setProcessingModalOpen(true);
+  };
+
+  const handleTitleCancel = () => {
+    setTitleInputModalOpen(false);
+    setCurrentGenerationTitle('');
+  };
+
+  const handleProcessingComplete = (result: GenerationResult) => {
+    console.log('🎯 Pipeline Builder - Processing Complete Callback:', {
+      result,
+      thumbnailUrl: result.thumbnailUrl,
+      downloadUrl: result.downloadUrl,
+      format: result.format
+    });
+    
+    // Update existing gallery item instead of creating a new one
+    try {
+      const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
+      const history = savedHistory ? JSON.parse(savedHistory) : [];
+      
+      // Find existing item by ID and update it
+      const existingItemIndex = history.findIndex((item: any) => item.id === result.id);
+      
+      if (existingItemIndex !== -1) {
+        // Update existing item with completion data
+        const existingItem = history[existingItemIndex];
+        const updatedItem = {
+          ...existingItem,
+          title: currentGenerationTitle || existingItem.title || `Generated ${result.format === 'video' ? 'Video' : 'Podcast'} Content`,
+          downloadUrl: result.downloadUrl,
+          thumbnailUrl: result.thumbnailUrl,
+          duration: result.duration,
+          fileSize: result.fileSize,
+          status: 'finished',
+          progress: 100,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        history[existingItemIndex] = updatedItem;
+      } else {
+        // Fallback: create new item if somehow it doesn't exist
+        console.warn('Gallery item not found for completed job, creating new item');
+        const promptNode = nodes.find(n => n.type === 'prompt');
+        const connectedComponents = promptNode ? connections
+          .filter(conn => conn.target === promptNode.id)
+          .map(conn => {
+            const sourceNode = nodes.find(n => n.id === conn.source);
+            return sourceNode ? sourceNode.type : 'unknown';
+          }) : [];
+        
+        const newItem = {
+          id: result.id,
+          title: currentGenerationTitle || `Generated ${result.format === 'video' ? 'Video' : 'Podcast'} Content`,
+          format: result.format,
+          downloadUrl: result.downloadUrl,
+          thumbnailUrl: result.thumbnailUrl,
+          duration: result.duration,
+          fileSize: result.fileSize,
+          createdAt: new Date().toISOString(),
+          status: 'finished',
+          metadata: {
+            evidenceUsed: evidenceData !== null,
+            styleUsed: styleData !== null,
+            personalDataUsed: personalData !== null,
+            connectedComponents: connectedComponents
+          }
+        };
+        
+        history.unshift(newItem);
+      }
+      
+      localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
+      
+      // Reset generation state
+      setCurrentGenerationTitle('');
+      
+      // Open gallery instead of showing alert
+      setGalleryModalOpen(true);
+      
+    } catch (error) {
+      console.error('Failed to save to gallery:', error);
+    }
+  };
+
+  const handleProcessingCancel = () => {
+    // Handle cancellation logic if needed
+    setProcessingModalOpen(false);
+  };
+
+  return (
+    <div className="h-screen flex bg-gray-900 text-white overflow-hidden relative">
+      {/* Top Right Controls */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-3">
+        {/* Backend Health Status Indicator */}
+        <div 
+          className={`text-xs px-2 py-1 rounded border flex items-center gap-1 cursor-pointer transition-colors ${
+            backendHealthStatus === 'healthy' 
+              ? 'text-emerald-400 bg-emerald-500/10 border-emerald-400/30 hover:bg-emerald-500/20' 
+              : backendHealthStatus === 'unhealthy'
+              ? 'text-red-400 bg-red-500/10 border-red-400/30 hover:bg-red-500/20'
+              : backendHealthStatus === 'checking'
+              ? 'text-blue-400 bg-blue-500/10 border-blue-400/30'
+              : 'text-gray-400 bg-gray-800/80 border-gray-600'
+          }`}
+          onClick={() => setSettingsModalOpen(true)}
+          title={
+            backendHealthStatus === 'healthy' 
+              ? 'Backend service is running normally. Click to open settings.' 
+              : backendHealthStatus === 'unhealthy'
+              ? 'Backend service is offline or unreachable. Click to open settings and check configuration.'
+              : backendHealthStatus === 'checking'
+              ? 'Checking backend service health... Click to open settings.'
+              : 'Backend service status unknown. Click to open settings and check configuration.'
+          }
+        >
+          {backendHealthStatus === 'checking' && <Loader2 className="w-3 h-3 animate-spin" />}
+          {backendHealthStatus === 'healthy' && <CheckCircle className="w-3 h-3" />}
+          {backendHealthStatus === 'unhealthy' && <XCircle className="w-3 h-3" />}
+          {backendHealthStatus === 'unknown' && <XCircle className="w-3 h-3" />}
+          Backend {backendHealthStatus === 'healthy' ? 'Online' : backendHealthStatus === 'checking' ? 'Checking...' : 'Offline'}
+        </div>
+        
+        {/* Save Status Indicator */}
+        {lastSaveTime && (
+          <div className="text-xs text-gray-400 bg-gray-800/80 px-2 py-1 rounded border border-gray-600">
+            💾 Saved {lastSaveTime.toLocaleTimeString()}
+          </div>
+        )}
+
+        <Button
+          variant="outline"
+          onClick={() => setGalleryModalOpen(true)}
+          className="bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-300 p-2 sm:px-3"
+        >
+          <Images size={16} />
+          <span className="hidden sm:inline ml-2">Gallery</span>
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={() => setHelpModalOpen(true)}
+          className="bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-300 p-2 sm:px-3"
+        >
+          <HelpCircle size={16} />
+          <span className="hidden sm:inline ml-2">Help</span>
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={() => setSettingsModalOpen(true)}
+          className="bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-300 p-2 sm:px-3"
+        >
+          <Settings size={16} />
+          <span className="hidden sm:inline ml-2">Settings</span>
+        </Button>
+      </div>
+
+
+      {/* Blur overlay when generating */}
+      {loadingModalOpen && (
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-40" />
+      )}
+
+      <ComponentSidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        nodes={nodes}
+      />
+
+      <CanvasWorkspace
+        nodes={nodes}
+        connections={connections}
+        onNodesChange={setNodes}
+        onConnectionsChange={setConnections}
+        onNodeClick={handleNodeClick}
+        onGenerate={handleGenerate}
+        onSelectionChange={setSelectedComponentType}
+        onHoverChange={setHoveredComponentType}
+        backendHealthStatus={backendHealthStatus}
+        evidenceData={evidenceData}
+        styleData={styleData}
+        visualStylingData={visualStylingData}
+        personalData={personalData}
+        outputSelectorData={outputSelectorData}
+        promptText={promptText}
+        onPromptChange={handlePromptChange}
+        selectedComponentType={hoveredComponentType || selectedComponentType}
+        onClearEvidenceData={() => setEvidenceData(null)}
+        onClearStyleData={() => setStyleData(null)}
+        onClearVisualStylingData={() => setVisualStylingData(null)}
+        onClearPersonalData={() => setPersonalData(null)}
+        onClearOutputSelectorData={() => setOutputSelectorData(null)}
+        firstName={firstName}
+        lastName={lastName}
+        onNameChange={handleNameChange}
+      />
+
+      <EvidenceInputModal
+        open={evidenceModalOpen}
+        onOpenChange={setEvidenceModalOpen}
+        customApiKey={customApiKey}
+        existingData={evidenceData}
+        onDataUpdate={(data) => {
+          setEvidenceData(data);
+          if (selectedNodeForConfig) {
+            setNodes(prev => prev.map(node =>
+              node.id === selectedNodeForConfig
+                ? { ...node, data: { ...node.data, configured: data !== null } }
+                : node
+            ));
+          }
+        }}
+      />
+
+      <StylePersonalizationModal
+        open={styleModalOpen}
+        onOpenChange={setStyleModalOpen}
+        customApiKey={customApiKey}
+        existingData={styleData}
+        onDataUpdate={(data) => {
+          setStyleData(data);
+          if (selectedNodeForConfig) {
+            setNodes(prev => prev.map(node =>
+              node.id === selectedNodeForConfig
+                ? { ...node, data: { ...node.data, configured: data !== null } }
+                : node
+            ));
+          }
+        }}
+      />
+
+      <VisualStylingModal
+        open={visualStylingModalOpen}
+        onOpenChange={setVisualStylingModalOpen}
+        existingData={visualStylingData}
+        onDataUpdate={(data) => {
+          setVisualStylingData(data);
+          if (selectedNodeForConfig) {
+            setNodes(prev => prev.map(node =>
+              node.id === selectedNodeForConfig
+                ? { ...node, data: { ...node.data, configured: data !== null } }
+                : node
+            ));
+          }
+        }}
+      />
+
+      <PersonalDataModal
+        open={personalDataModalOpen}
+        onOpenChange={setPersonalDataModalOpen}
+        onDataUpdate={(data) => {
+          setPersonalData(data);
+          if (selectedNodeForConfig) {
+            setNodes(prev => prev.map(node =>
+              node.id === selectedNodeForConfig
+                ? { ...node, data: { ...node.data, configured: data !== null } }
+                : node
+            ));
+          }
+        }}
+      />
+
+      <OutputSelectorModal
+        open={outputSelectorModalOpen}
+        onOpenChange={setOutputSelectorModalOpen}
+        currentData={outputSelectorData}
+        hasGeminiKey={!!customApiKey}
+        onOpenSettings={() => setSettingsModalOpen(true)}
+        onDataUpdate={(data) => {
+          setOutputSelectorData(data);
+          if (selectedNodeForConfig) {
+            setNodes(prev => prev.map(node =>
+              node.id === selectedNodeForConfig
+                ? { ...node, data: { ...node.data, configured: data !== null } }
+                : node
+            ));
+          }
+        }}
+      />
+
+      <ConfirmationModal
+        open={confirmationModalOpen}
+        onOpenChange={setConfirmationModalOpen}
+        onConfirm={handleConfirmGeneration}
+        title="Confirm Content Generation"
+        description="Are you sure you want to generate this content? This will process all your configured pipeline components and create your personalized media."
+      />
+
+      <SettingsModal
+        open={settingsModalOpen}
+        onOpenChange={setSettingsModalOpen}
+        currentService={selectedService}
+        onServiceChange={setSelectedService}
+        onApiKeyUpdate={setCustomApiKey}
+        currentApiKey={customApiKey}
+        onBackendCredentialsUpdate={setBackendCredentials}
+        currentBackendCredentials={backendCredentials}
+        healthStatus={backendHealthStatus}
+        onHealthCheck={checkBackendHealth}
+        onResetStorage={() => {
+          clearLocalStorage();
+          // Reset all state to initial values
+          setNodes([
+            {
+              id: 'prompt-1',
+              type: 'prompt',
+              position: { x: 400, y: 300 },
+              data: {
+                configured: true,
+                title: 'AI Prompt',
+                description: 'Build and edit AI prompt',
+                prompt: 'Generate content based on the following:',
+                connectedComponents: [],
+              },
+            }
+          ]);
+          setConnections([]);
+          setEvidenceData(null);
+          setStyleData(null);
+          setVisualStylingData(null);
+          setPersonalData(null);
+          setOutputSelectorData(null);
+          setSelectedService('gemini');
+          setCustomApiKey(null);
+          setBackendCredentials({});
+          setPromptText('Generate content based on the following:');
+          setLastSaveTime(null);
+        }}
+      />
+
+      <ProcessingModal
+        open={processingModalOpen}
+        onOpenChange={setProcessingModalOpen}
+        format={currentGenerationFormat}
+        evidenceData={evidenceData}
+        styleData={styleData}
+        visualStylingData={visualStylingData}
+        personalData={personalData}
+        outputSelectorData={outputSelectorData}
+        promptText={promptText}
+        customApiKey={customApiKey}
+        backendCredentials={backendCredentials}
+        onComplete={handleProcessingComplete}
+        onCancel={handleProcessingCancel}
+        generatedPrompt={generateMCPPrompt()}
+      />
+
+      <TitleInputModal
+        open={titleInputModalOpen}
+        onOpenChange={setTitleInputModalOpen}
+        format={currentGenerationFormat}
+        onConfirm={handleTitleConfirm}
+        onCancel={handleTitleCancel}
+      />
+
+      <GalleryModal
+        open={galleryModalOpen}
+        onOpenChange={setGalleryModalOpen}
+        onCreateNew={() => {
+          setGalleryModalOpen(false);
+          // Focus on the pipeline builder to create new content
+        }}
+      />
+
+      <HelpModal
+        open={helpModalOpen}
+        onOpenChange={setHelpModalOpen}
+      />
+
+      <LoadingModal
+        open={loadingModalOpen}
+        progress={generationProgress}
+        status={generationStatus}
+      />
+    </div>
+  );
+}
