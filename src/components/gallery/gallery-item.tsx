@@ -92,6 +92,12 @@ export default function GalleryItem({ item, onPreview, onDelete }: GalleryItemPr
     }
   };
 
+  const handleThumbnailDownload = () => {
+    if (item.thumbnailUrl) {
+      window.open(item.thumbnailUrl, '_blank');
+    }
+  };
+
   const handlePreview = () => {
     if (onPreview) {
       onPreview(item);
@@ -111,20 +117,24 @@ export default function GalleryItem({ item, onPreview, onDelete }: GalleryItemPr
       onMouseLeave={() => setIsHovered(false)}
     >
       <CardContent className="p-0">
-        {/* Thumbnail/Preview Area */}
-        <div className="relative aspect-video bg-gray-900/50 flex items-center justify-center">
+        {/* Thumbnail/Preview Area - Clickable for downloads */}
+        <div 
+          className="relative aspect-video bg-gray-900/50 flex items-center justify-center cursor-pointer group/thumbnail" 
+          onClick={(item.status === 'completed' || item.status === 'finished') && item.downloadUrl ? handleDownload : undefined}
+          title={(item.status === 'completed' || item.status === 'finished') && item.downloadUrl ? `Click to download ${item.title}` : undefined}
+        >
           {item.thumbnailUrl ? (
             <img 
               src={item.thumbnailUrl} 
               alt={item.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-opacity group-hover/thumbnail:opacity-80"
             />
           ) : (
             <div className="flex items-center justify-center">
               {item.format === 'video' ? (
-                <Video className="w-12 h-12 text-gray-500" />
+                <Video className="w-12 h-12 text-gray-500 group-hover/thumbnail:text-gray-400 transition-colors" />
               ) : (
-                <Headphones className="w-12 h-12 text-gray-500" />
+                <Headphones className="w-12 h-12 text-gray-500 group-hover/thumbnail:text-gray-400 transition-colors" />
               )}
             </div>
           )}
@@ -146,42 +156,62 @@ export default function GalleryItem({ item, onPreview, onDelete }: GalleryItemPr
             </Badge>
           </div>
 
-          {/* Play Button Overlay for Video */}
-          {item.format === 'video' && (item.status === 'completed' || item.status === 'finished') && isHovered && (
-            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-              <Button
-                size="sm"
-                onClick={handlePreview}
-                className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border-white/30"
-              >
-                <Play className="w-4 h-4 mr-2" />
-                Preview
-              </Button>
+          {/* Download Overlay - appears on hover when ready */}
+          {(item.status === 'completed' || item.status === 'finished') && item.downloadUrl && isHovered && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div className="text-center text-white">
+                <Download className="w-8 h-8 mx-auto mb-2" />
+                <span className="text-sm font-medium">Click to Download</span>
+              </div>
             </div>
           )}
         </div>
 
         {/* Content Info */}
-        <div className="p-4">
+        <div className="p-3">
           {/* Title */}
-          <h3 className="font-medium text-white text-sm mb-2 line-clamp-2">
+          <h3 className="font-medium text-white text-sm mb-3 line-clamp-2">
             {item.title}
           </h3>
 
           {/* Audio Player for audio content */}
           {item.format === 'audio' && (item.status === 'completed' || item.status === 'finished') && item.downloadUrl && (
-            <div className="mb-4">
+            <div className="mb-3 space-y-2">
               <AudioPlayer
                 src={item.downloadUrl}
-                title={item.title}
+                title=""
                 onFallbackToTab={handlePreview}
                 className="bg-gray-900/50 border-gray-600"
               />
+              
+              {/* Download buttons for audio */}
+              <div className="flex gap-2">
+                {item.thumbnailUrl && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleThumbnailDownload}
+                    className="flex-1 bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 text-xs"
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    Thumbnail
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleDownload}
+                  className="flex-1 bg-blue-600/20 border-blue-400/30 text-blue-300 hover:bg-blue-600/30 text-xs"
+                >
+                  <Download className="w-3 h-3 mr-1" />
+                  Audio
+                </Button>
+              </div>
             </div>
           )}
 
           {/* Metadata */}
-          <div className="space-y-2 text-xs text-gray-400">
+          <div className="space-y-2 text-xs text-gray-400 mb-3">
             <div className="flex items-center gap-4">
               {item.duration && (
                 <div className="flex items-center gap-1">
@@ -203,50 +233,29 @@ export default function GalleryItem({ item, onPreview, onDelete }: GalleryItemPr
             </div>
 
             {/* Usage Indicators */}
-            <div className="flex gap-1 mt-2">
-              {item.metadata?.evidenceUsed && (
-                <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-400/30 text-xs px-2 py-0">
-                  Evidence
-                </Badge>
-              )}
-              {item.metadata?.styleUsed && (
-                <Badge variant="outline" className="bg-purple-500/20 text-purple-400 border-purple-400/30 text-xs px-2 py-0">
-                  Style
-                </Badge>
-              )}
-              {item.metadata?.personalDataUsed && (
-                <Badge variant="outline" className="bg-blue-500/20 text-blue-400 border-blue-400/30 text-xs px-2 py-0">
-                  Personal
-                </Badge>
-              )}
-            </div>
+            {(item.metadata?.evidenceUsed || item.metadata?.styleUsed || item.metadata?.personalDataUsed) && (
+              <div className="flex gap-1 mt-1">
+                {item.metadata?.evidenceUsed && (
+                  <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-400/30 text-xs px-2 py-0">
+                    Evidence
+                  </Badge>
+                )}
+                {item.metadata?.styleUsed && (
+                  <Badge variant="outline" className="bg-purple-500/20 text-purple-400 border-purple-400/30 text-xs px-2 py-0">
+                    Style
+                  </Badge>
+                )}
+                {item.metadata?.personalDataUsed && (
+                  <Badge variant="outline" className="bg-blue-500/20 text-blue-400 border-blue-400/30 text-xs px-2 py-0">
+                    Personal
+                  </Badge>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2 mt-4">
-            {(item.status === 'completed' || item.status === 'finished') && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleDownload}
-                  className="flex-1 bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 text-xs"
-                >
-                  <Download className="w-3 h-3 mr-1" />
-                  Download
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handlePreview}
-                  className="flex-1 bg-blue-600/20 border-blue-400/30 text-blue-300 hover:bg-blue-600/30 text-xs"
-                >
-                  <ExternalLink className="w-3 h-3 mr-1" />
-                  View
-                </Button>
-              </>
-            )}
-            
+          {/* Action Buttons - Only show delete for failed/incomplete items */}
+          <div className="flex gap-2">
             {/* Delete button for failed jobs or when explicitly enabled */}
             {(item.status === 'failed' || item.status === 'started' || item.status === 'queued') && onDelete && (
               <Button
@@ -256,8 +265,16 @@ export default function GalleryItem({ item, onPreview, onDelete }: GalleryItemPr
                 className="bg-red-600/20 border-red-400/30 text-red-300 hover:bg-red-600/30 text-xs"
                 title={`Delete ${item.title}`}
               >
-                <Trash2 className="w-3 h-3" />
+                <Trash2 className="w-3 h-3 mr-1" />
+                Delete
               </Button>
+            )}
+            
+            {/* Completed items show helpful instruction */}
+            {(item.status === 'completed' || item.status === 'finished') && item.downloadUrl && item.format === 'video' && (
+              <div className="flex-1 text-xs text-gray-500 text-center py-2">
+                Click thumbnail to download
+              </div>
             )}
           </div>
         </div>

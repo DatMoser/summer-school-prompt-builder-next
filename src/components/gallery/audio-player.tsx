@@ -8,9 +8,10 @@ import {
 
 interface AudioPlayerProps {
   src: string;
-  title: string;
+  title?: string;
   onFallbackToTab?: () => void;
   className?: string;
+  showTitle?: boolean;
 }
 
 export default function AudioPlayer({ src, title, onFallbackToTab, className }: AudioPlayerProps) {

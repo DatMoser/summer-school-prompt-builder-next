@@ -113,9 +113,7 @@ export interface VisualStylingData {
 }
 
 export interface PersonalHealthData {
-  // Personal Information
-  firstName?: string; // User's first name (optional)
-  lastName?: string; // User's last name (optional)
+  // Personal Instructions
   customInstructions?: string; // User's custom health-related instructions
   
   // Basic Demographics & Goals (Apple Health profile data)

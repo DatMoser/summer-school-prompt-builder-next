@@ -247,6 +247,35 @@ export default function PipelineBuilder() {
     return 'Generate content based on the following:';
   });
 
+  // Name state for personalization (stored on prompt node)
+  const [firstName, setFirstName] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-first-name');
+        if (saved) {
+          return saved;
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved first name:', error);
+      }
+    }
+    return '';
+  });
+
+  const [lastName, setLastName] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pipeline-builder-last-name');
+        if (saved) {
+          return saved;
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved last name:', error);
+      }
+    }
+    return '';
+  });
+
   // Local storage keys
   const STORAGE_KEYS = {
     nodes: 'pipeline-builder-nodes',
@@ -260,6 +289,8 @@ export default function PipelineBuilder() {
     customApiKey: 'pipeline-builder-custom-api-key',
     promptText: 'pipeline-builder-prompt-text',
     backendCredentials: 'pipeline-builder-backend-credentials',
+    firstName: 'pipeline-builder-first-name',
+    lastName: 'pipeline-builder-last-name',
   };
 
   // Save state to localStorage
@@ -326,13 +357,15 @@ export default function PipelineBuilder() {
       }
       localStorage.setItem(STORAGE_KEYS.promptText, promptText);
       localStorage.setItem(STORAGE_KEYS.backendCredentials, JSON.stringify(backendCredentials));
+      localStorage.setItem(STORAGE_KEYS.firstName, firstName);
+      localStorage.setItem(STORAGE_KEYS.lastName, lastName);
 
       setLastSaveTime(new Date());
       // console.log('✅ State successfully saved to localStorage');
     } catch (error) {
       console.error('❌ Failed to save state to localStorage:', error);
     }
-  }, [nodes, connections, evidenceData, styleData, visualStylingData, personalData, outputSelectorData, selectedService, customApiKey, promptText, backendCredentials]);
+  }, [nodes, connections, evidenceData, styleData, visualStylingData, personalData, outputSelectorData, selectedService, customApiKey, promptText, backendCredentials, firstName, lastName]);
 
   // Load state from localStorage
   const loadFromLocalStorage = useCallback(() => {
@@ -649,62 +682,167 @@ export default function PipelineBuilder() {
     );
   };
 
+  const handleNameChange = (newFirstName: string, newLastName: string) => {
+    setFirstName(newFirstName);
+    setLastName(newLastName);
+  };
+
   // Generate the final MCP-compatible prompt
   const generateMCPPrompt = () => {
     const promptNode = nodes.find(n => n.type === 'prompt');
     const connectedComponents = promptNode?.data.connectedComponentsWithIds || [];
     
-    let finalPrompt = "You are a health content generation assistant. Create personalized health content using the following data:\n\n";
+    // Extract user name from prompt builder inputs for maximum personalization
+    const userName = (firstName || lastName) 
+      ? [firstName, lastName].filter(Boolean).join(' ')
+      : null;
+    
+    let finalPrompt = "You are a health content generation assistant. ";
+    
+    if (userName) {
+      finalPrompt += `Create personalized health content specifically for ${userName}. `;
+      finalPrompt += `Throughout the content, address ${userName} directly and make all advice personally relevant to them. `;
+      finalPrompt += `Use the following comprehensive data about ${userName} to maximize personalization:\n\n`;
+    } else {
+      finalPrompt += "Create personalized health content using the following data:\n\n";
+    }
     
     // Add evidence data if connected
     if (connectedComponents.some(c => c.type === 'evidence-input') && evidenceData) {
-      finalPrompt += `EVIDENCE GUIDELINES:\n${evidenceData.summary}\n\n`;
-      finalPrompt += `KEY GUIDELINES:\n${evidenceData.extractedGuidelines.join('\n- ')}\n\n`;
+      finalPrompt += `EVIDENCE-BASED GUIDELINES:\n`;
+      if (evidenceData.fileName) {
+        finalPrompt += `Source File: ${evidenceData.fileName}\n`;
+      }
+      if (evidenceData.summary) {
+        finalPrompt += `Summary: ${evidenceData.summary}\n`;
+      }
+      finalPrompt += `\nKEY GUIDELINES:\n${evidenceData.extractedGuidelines.join('\n- ')}\n\n`;
       if (evidenceData.fileContent) {
-        finalPrompt += `SOURCE CONTENT:\n${evidenceData.fileContent}\n\n`;
+        finalPrompt += `FULL SOURCE CONTENT:\n${evidenceData.fileContent}\n\n`;
       }
     }
     
     // Add style data if connected
     if (connectedComponents.some(c => c.type === 'style-personalization') && styleData) {
       finalPrompt += `COMMUNICATION STYLE:\n`;
-      finalPrompt += `Tone: ${styleData.tone}\n`;
-      finalPrompt += `Pace: ${styleData.pace}\n`;
-      finalPrompt += `Vocabulary: ${styleData.vocabulary}\n`;
+      
+      // Basic style dimensions
+      if (styleData.tone) finalPrompt += `Tone: ${styleData.tone}\n`;
+      if (styleData.pace) finalPrompt += `Pace: ${styleData.pace}\n`;
+      if (styleData.vocabulary) finalPrompt += `Vocabulary: ${styleData.vocabulary}\n`;
       
       // Include advanced fields if they have values
-      if (styleData.energy) {
-        finalPrompt += `Energy: ${styleData.energy}\n`;
-      }
-      if (styleData.formality) {
-        finalPrompt += `Formality: ${styleData.formality}\n`;
-      }
-      if (styleData.humor) {
-        finalPrompt += `Humor: ${styleData.humor}\n`;
-      }
-      if (styleData.empathy) {
-        finalPrompt += `Empathy: ${styleData.empathy}\n`;
-      }
-      if (styleData.confidence) {
-        finalPrompt += `Confidence: ${styleData.confidence}\n`;
-      }
-      if (styleData.storytelling) {
-        finalPrompt += `Storytelling: ${styleData.storytelling}\n`;
+      if (styleData.energy) finalPrompt += `Energy: ${styleData.energy}\n`;
+      if (styleData.formality) finalPrompt += `Formality: ${styleData.formality}\n`;
+      if (styleData.humor) finalPrompt += `Humor: ${styleData.humor}\n`;
+      if (styleData.empathy) finalPrompt += `Empathy: ${styleData.empathy}\n`;
+      if (styleData.confidence) finalPrompt += `Confidence: ${styleData.confidence}\n`;
+      if (styleData.storytelling) finalPrompt += `Storytelling: ${styleData.storytelling}\n`;
+      
+      // Key phrases
+      if (styleData.keyPhrases?.length) {
+        finalPrompt += `\nKEY PHRASES TO USE:\n${styleData.keyPhrases.join(', ')}\n`;
       }
       
-      if (styleData.keyPhrases?.length) {
-        finalPrompt += `\nKEY PHRASES:\n${styleData.keyPhrases.join(', ')}\n\n`;
+      // Audience and structure
+      if (styleData.targetAudience) finalPrompt += `\nTARGET AUDIENCE:\n${styleData.targetAudience}\n`;
+      if (styleData.contentStructure) finalPrompt += `CONTENT STRUCTURE:\n${styleData.contentStructure}\n`;
+      
+      // CRITICAL: Add the custom prompt field that was missing
+      if (styleData.customPrompt) {
+        finalPrompt += `\nADDITIONAL STYLE INSTRUCTIONS:\n${styleData.customPrompt}\n`;
       }
-      finalPrompt += `TARGET AUDIENCE:\n${styleData.targetAudience}\n`;
-      finalPrompt += `CONTENT STRUCTURE:\n${styleData.contentStructure}\n\n`;
+      
+      // Add metadata for transparency
+      if (styleData.sourceDescription) {
+        finalPrompt += `\nStyle Source: ${styleData.sourceDescription}\n`;
+      }
+      if (styleData.isAIGenerated) {
+        finalPrompt += `Style Generation Method: AI-Generated\n`;
+      }
+      
+      finalPrompt += `\n`;
     }
     
     // Add personal data if connected
     if (connectedComponents.some(c => c.type === 'personal-data') && personalData) {
-      finalPrompt += `PERSONAL HEALTH METRICS:\n`;
-      finalPrompt += `Average Daily Steps: ${personalData.averageDailySteps}\n`;
-      finalPrompt += `Average Heart Rate: ${personalData.averageHeartRate} BPM\n\n`;
-      finalPrompt += `Use this data to personalize health content and recommendations.\n\n`;
+      finalPrompt += `PERSONAL HEALTH PROFILE:\n`;
+      
+      // Add user name from prompt builder if available
+      if (userName) {
+        finalPrompt += `CLIENT NAME: ${userName}\n`;
+        finalPrompt += `(IMPORTANT: Use this name throughout the content for direct, personal communication)\n`;
+      }
+      
+      // CRITICAL: Add custom instructions that were missing
+      if (personalData.customInstructions) {
+        finalPrompt += `\nCUSTOM HEALTH INSTRUCTIONS:\n${personalData.customInstructions}\n\n`;
+      }
+      
+      // Basic demographics
+      if (personalData.age) finalPrompt += `Age: ${personalData.age} years\n`;
+      if (personalData.biologicalSex) finalPrompt += `Biological Sex: ${personalData.biologicalSex}\n`;
+      if (personalData.heightCm) finalPrompt += `Height: ${personalData.heightCm} cm\n`;
+      if (personalData.weightKg) finalPrompt += `Weight: ${personalData.weightKg} kg\n`;
+      
+      // Calculate BMI if height and weight are available
+      if (personalData.heightCm && personalData.weightKg) {
+        const bmi = personalData.weightKg / Math.pow(personalData.heightCm / 100, 2);
+        finalPrompt += `BMI: ${bmi.toFixed(1)}\n`;
+      }
+      
+      // Fitness goals - very important for personalization
+      if (personalData.fitnessGoals) {
+        finalPrompt += `\nFITNESS GOALS:\n${personalData.fitnessGoals}\n`;
+      }
+      
+      // Core activity metrics
+      finalPrompt += `\nACTIVITY METRICS:\n`;
+      if (personalData.averageDailySteps) finalPrompt += `Daily Steps: ${personalData.averageDailySteps.toLocaleString()}\n`;
+      if (personalData.averageHeartRate) finalPrompt += `Average Heart Rate: ${personalData.averageHeartRate} BPM\n`;
+      if (personalData.sleepHoursPerNight) finalPrompt += `Sleep: ${personalData.sleepHoursPerNight} hours/night\n`;
+      if (personalData.activeEnergyBurned) finalPrompt += `Active Calories: ${personalData.activeEnergyBurned}/day\n`;
+      if (personalData.exerciseMinutesPerWeek) finalPrompt += `Exercise: ${personalData.exerciseMinutesPerWeek} minutes/week\n`;
+      if (personalData.waterIntakeLiters) finalPrompt += `Water Intake: ${personalData.waterIntakeLiters}L/day\n`;
+      
+      // Advanced health metrics if available
+      const hasAdvancedMetrics = personalData.restingHeartRate || personalData.vo2Max || 
+                                personalData.walkingHeartRateAverage || personalData.heartRateVariability ||
+                                personalData.bloodPressureSystolic || personalData.bloodGlucose;
+      
+      if (hasAdvancedMetrics) {
+        finalPrompt += `\nADVANCED HEALTH METRICS:\n`;
+        if (personalData.restingHeartRate) finalPrompt += `Resting Heart Rate: ${personalData.restingHeartRate} BPM\n`;
+        if (personalData.vo2Max) finalPrompt += `VO2 Max: ${personalData.vo2Max} ml/kg/min\n`;
+        if (personalData.walkingHeartRateAverage) finalPrompt += `Walking Heart Rate: ${personalData.walkingHeartRateAverage} BPM\n`;
+        if (personalData.heartRateVariability) finalPrompt += `Heart Rate Variability: ${personalData.heartRateVariability}ms\n`;
+        if (personalData.bloodPressureSystolic && personalData.bloodPressureDiastolic) {
+          finalPrompt += `Blood Pressure: ${personalData.bloodPressureSystolic}/${personalData.bloodPressureDiastolic} mmHg\n`;
+        }
+        if (personalData.bloodGlucose) finalPrompt += `Blood Glucose: ${personalData.bloodGlucose} mg/dL\n`;
+      }
+      
+      // Activity patterns and preferences
+      if (personalData.workoutTypes?.length) {
+        finalPrompt += `\nWORKOUT PREFERENCES:\n${personalData.workoutTypes.join(', ')}\n`;
+      }
+      if (personalData.mostActiveTimeOfDay) {
+        finalPrompt += `Most Active Time: ${personalData.mostActiveTimeOfDay}\n`;
+      }
+      if (personalData.weeklyActivityConsistency) {
+        finalPrompt += `Activity Consistency: ${personalData.weeklyActivityConsistency}\n`;
+      }
+      
+      // Data source information
+      if (personalData.sourceDescription) {
+        finalPrompt += `\nData Source: ${personalData.sourceDescription}\n`;
+      }
+      if (personalData.lastSyncDate) {
+        const syncDate = new Date(personalData.lastSyncDate);
+        finalPrompt += `Last Updated: ${syncDate.toLocaleDateString()}\n`;
+      }
+      
+      finalPrompt += `\nUse this comprehensive health profile to create highly personalized content and recommendations.\n\n`;
     }
     
     // Add visual styling if connected
@@ -714,34 +852,70 @@ export default function PipelineBuilder() {
       // Add video styling for video format
       if (outputSelectorData?.selectedFormat === 'video' && visualStylingData.videoStyle) {
         const video = visualStylingData.videoStyle;
-        finalPrompt += `Video Style: ${video.visualTheme} theme with ${video.colorScheme} colors\n`;
+        finalPrompt += `VIDEO STYLING:\n`;
+        finalPrompt += `Visual Theme: ${video.visualTheme}\n`;
+        finalPrompt += `Color Scheme: ${video.colorScheme}\n`;
         finalPrompt += `Typography: ${video.fontStyle} fonts\n`;
         finalPrompt += `Layout: ${video.layoutStyle} composition\n`;
         finalPrompt += `Background: ${video.backgroundStyle} style\n`;
-        finalPrompt += `Animation: ${video.animationLevel} level\n`;
+        finalPrompt += `Animation Level: ${video.animationLevel}\n\n`;
       }
       
       // Add podcast thumbnail styling for audio format
       if (outputSelectorData?.selectedFormat === 'podcast' && visualStylingData.podcastThumbnail) {
         const podcast = visualStylingData.podcastThumbnail;
-        finalPrompt += `Podcast Thumbnail: ${podcast.designTheme} design with ${podcast.colorScheme} colors\n`;
-        finalPrompt += `Typography: ${podcast.fontStyle} fonts in ${podcast.layoutType} layout\n`;
+        finalPrompt += `PODCAST THUMBNAIL STYLING:\n`;
+        finalPrompt += `Design Theme: ${podcast.designTheme}\n`;
+        finalPrompt += `Color Scheme: ${podcast.colorScheme}\n`;
+        finalPrompt += `Typography: ${podcast.fontStyle} fonts\n`;
+        finalPrompt += `Layout Type: ${podcast.layoutType}\n`;
         finalPrompt += `Background: ${podcast.backgroundStyle} style\n`;
         if (podcast.iconStyle && podcast.iconStyle !== 'none') {
-          finalPrompt += `Icons: ${podcast.iconStyle} style elements\n`;
+          finalPrompt += `Icon Style: ${podcast.iconStyle} elements\n`;
         }
+        finalPrompt += `\n`;
       }
       
+      // Add custom colors if specified
+      if (visualStylingData.customColors && 
+          (visualStylingData.videoStyle?.colorScheme === 'custom' || 
+           visualStylingData.podcastThumbnail?.colorScheme === 'custom')) {
+        finalPrompt += `CUSTOM COLOR PALETTE:\n`;
+        finalPrompt += `Primary: ${visualStylingData.customColors.primary}\n`;
+        finalPrompt += `Secondary: ${visualStylingData.customColors.secondary}\n`;
+        finalPrompt += `Accent: ${visualStylingData.customColors.accent}\n`;
+        finalPrompt += `Background: ${visualStylingData.customColors.background}\n`;
+        finalPrompt += `Text: ${visualStylingData.customColors.text}\n\n`;
+      }
+      
+      // Add branding options if specified
+      if (visualStylingData.branding) {
+        finalPrompt += `BRANDING REQUIREMENTS:\n`;
+        if (visualStylingData.branding.includeLogo) {
+          finalPrompt += `Logo Position: ${visualStylingData.branding.logoPosition}\n`;
+        }
+        if (visualStylingData.branding.brandColors) {
+          finalPrompt += `Use Brand Colors: Yes\n`;
+        }
+        finalPrompt += `\n`;
+      }
+      
+      // Content focus and demographic
       if (visualStylingData.healthFocus) {
-        finalPrompt += `Health Focus: ${visualStylingData.healthFocus}\n`;
+        finalPrompt += `Health Focus Area: ${visualStylingData.healthFocus}\n`;
       }
-      
       if (visualStylingData.targetDemographic) {
         finalPrompt += `Target Demographic: ${visualStylingData.targetDemographic}\n`;
       }
       
+      // Custom visual instructions
       if (visualStylingData.customPrompt) {
-        finalPrompt += `Custom Visual Instructions: ${visualStylingData.customPrompt}\n`;
+        finalPrompt += `\nCUSTOM VISUAL INSTRUCTIONS:\n${visualStylingData.customPrompt}\n`;
+      }
+      
+      // Add metadata
+      if (visualStylingData.sourceDescription) {
+        finalPrompt += `\nVisual Style Source: ${visualStylingData.sourceDescription}\n`;
       }
       
       finalPrompt += `\n`;
@@ -753,12 +927,26 @@ export default function PipelineBuilder() {
       finalPrompt += `Generate content optimized for ${outputSelectorData.selectedFormat} format.\n\n`;
     }
     
-    // Add custom instructions
+    // Add custom instructions and personalization directives
     if (promptNode?.data.customText) {
       finalPrompt += `ADDITIONAL INSTRUCTIONS:\n${promptNode.data.customText}\n\n`;
-    } else {
-      finalPrompt += `Create comprehensive, evidence-based health content that follows the communication style and incorporates personal health data for personalization.\n\n`;
     }
+    
+    // Enhanced personalization instructions
+    finalPrompt += `CONTENT CREATION GUIDELINES:\n`;
+    if (userName) {
+      finalPrompt += `- Address ${userName} directly throughout the content using their name\n`;
+      finalPrompt += `- Make all recommendations specific to ${userName}'s profile, goals, and health data\n`;
+      finalPrompt += `- Reference ${userName}'s personal metrics and preferences when providing advice\n`;
+      finalPrompt += `- Create content that feels like it was written specifically for ${userName}, not generic health advice\n`;
+      finalPrompt += `- Use phrases like "Based on your data, ${userName}..." or "${userName}, your specific goals suggest..."\n`;
+    } else {
+      finalPrompt += `- Create highly personalized content based on the provided health profile\n`;
+      finalPrompt += `- Make all recommendations specific to the user's goals and health data\n`;
+    }
+    finalPrompt += `- Follow evidence-based practices and incorporate the communication style preferences\n`;
+    finalPrompt += `- Ensure content is comprehensive, actionable, and personally relevant\n`;
+    finalPrompt += `- Adapt content format and visual styling to the specified output requirements\n\n`;
     
     return finalPrompt.trim();
   };
@@ -1052,6 +1240,9 @@ export default function PipelineBuilder() {
         onClearVisualStylingData={() => setVisualStylingData(null)}
         onClearPersonalData={() => setPersonalData(null)}
         onClearOutputSelectorData={() => setOutputSelectorData(null)}
+        firstName={firstName}
+        lastName={lastName}
+        onNameChange={handleNameChange}
       />
 
       <EvidenceInputModal

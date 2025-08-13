@@ -36,6 +36,9 @@ export interface StylePromptSectionProps extends PromptSectionProps {
 
 export interface PersonalDataPromptSectionProps extends PromptSectionProps {
   personalData?: {
+    // Personal Instructions
+    customInstructions?: string;
+
     // Basic Demographics & Goals
     age?: number;
     biologicalSex?: string;
@@ -260,6 +263,16 @@ export function PersonalDataPromptSection({ onRemove, highlighted, componentId, 
         </div>
         {personalData ? (
           <div>
+            {/* Custom Instructions */}
+            {personalData.customInstructions && (
+              <div className="mb-3">
+                <span className="text-purple-200 font-medium">CUSTOM HEALTH INSTRUCTIONS:</span>
+                <div className="mt-1 text-blue-300 bg-blue-500/10 border border-blue-400/20 rounded p-2 text-xs leading-relaxed">
+                  {personalData.customInstructions}
+                </div>
+              </div>
+            )}
+
             <div className="mb-2">
               <span className="text-purple-200 font-medium">PERSONAL HEALTH METRICS:</span>
               <div className="mt-1 text-gray-300 space-y-1">

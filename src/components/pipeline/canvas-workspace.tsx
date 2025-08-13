@@ -47,6 +47,10 @@ interface CanvasWorkspaceProps {
   onClearVisualStylingData?: () => void;
   onClearPersonalData?: () => void;
   onClearOutputSelectorData?: () => void;
+  // Name personalization
+  firstName?: string;
+  lastName?: string;
+  onNameChange?: (firstName: string, lastName: string) => void;
 }
 
 function CanvasWorkspaceContent({
@@ -72,6 +76,9 @@ function CanvasWorkspaceContent({
   onClearVisualStylingData,
   onClearPersonalData,
   onClearOutputSelectorData,
+  firstName,
+  lastName,
+  onNameChange,
 }: CanvasWorkspaceProps) {
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -369,6 +376,9 @@ function CanvasWorkspaceContent({
             customText: node.data.customText || '',
             selectedComponentType: selectedComponentType,
             backendHealthStatus: backendHealthStatus,
+            firstName: firstName || '',
+            lastName: lastName || '',
+            onNameChange: onNameChange || (() => { }),
             // Add a unique key to force React to see this as a new object when connections change
             _renderKey: `${Date.now()}-${(node.data.connectedComponentsWithIds || []).length}`,
             // Add a timestamp that forces re-render when connections change

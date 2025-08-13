@@ -1,5 +1,5 @@
 import { Handle, Position } from 'reactflow';
-import { Zap, Play } from 'lucide-react';
+import { Zap, Play, User } from 'lucide-react';
 import {
   CustomPromptSection,
   BasePromptSection,
@@ -9,7 +9,7 @@ import {
   PersonalDataPromptSection,
   OutputSelectorPromptSection
 } from './prompt-sections';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface PromptNodeData {
   configured: boolean;
@@ -26,6 +26,10 @@ interface PromptNodeData {
   onCustomTextChange?: (text: string) => void;
   selectedComponentType?: string;
   backendHealthStatus?: 'checking' | 'healthy' | 'unhealthy' | 'unknown';
+  // Name fields for personalization
+  firstName?: string;
+  lastName?: string;
+  onNameChange?: (firstName: string, lastName: string) => void;
   _immediateUpdate?: boolean;
   _deletedNodeId?: string;
   _updateTimestamp?: number;
@@ -109,6 +113,10 @@ interface PromptNodeData {
 }
 
 export function PromptNode({ data, selected }: { data: PromptNodeData; selected?: boolean }) {
+  // Local state for name inputs
+  const [firstName, setFirstName] = useState(data.firstName || '');
+  const [lastName, setLastName] = useState(data.lastName || '');
+
   // Use the connected components with IDs for more reliable rendering
   const connectedComponentsWithIds = data.connectedComponentsWithIds || [];
   const hasAnyConnections = connectedComponentsWithIds.length > 0;
@@ -120,11 +128,33 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
   const immediateKey = data._immediateUpdate ? `immediate-${data._updateTimestamp}` : '';
   const deletedKey = data._deletedNodeId ? `deleted-${data._deletedNodeId}` : '';
 
+  // Handle name changes
+  const handleNameChange = (newFirstName: string, newLastName: string) => {
+    setFirstName(newFirstName);
+    setLastName(newLastName);
+    if (data.onNameChange) {
+      data.onNameChange(newFirstName, newLastName);
+    }
+  };
+
   // Generate the real-time MCP prompt
   const generateRealTimePrompt = () => {
     if (!hasAnyConnections) return '';
     
-    let finalPrompt = "You are a health content generation assistant. Create personalized health content using the following data:\n\n";
+    // Extract user name from prompt builder inputs (not personal data)
+    const userName = (firstName || lastName) 
+      ? [firstName, lastName].filter(Boolean).join(' ')
+      : null;
+    
+    let finalPrompt = "You are a health content generation assistant. ";
+    
+    if (userName) {
+      finalPrompt += `Create personalized health content specifically for ${userName}. `;
+      finalPrompt += `Throughout the content, address ${userName} directly and make all advice personally relevant to them. `;
+      finalPrompt += `Use the following comprehensive data about ${userName} to maximize personalization:\n\n`;
+    } else {
+      finalPrompt += "Create personalized health content using the following data:\n\n";
+    }
     
     // Add evidence data if connected
     if (connectedComponentsWithIds.some(c => c.type === 'evidence-input') && data.evidenceData) {
@@ -217,12 +247,6 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
     // Add personal data if connected
     if (connectedComponentsWithIds.some(c => c.type === 'personal-data') && data.personalData) {
       finalPrompt += `PERSONAL HEALTH METRICS:\n`;
-      
-      // Personal Information
-      if (data.personalData.firstName || data.personalData.lastName) {
-        const fullName = [data.personalData.firstName, data.personalData.lastName].filter(Boolean).join(' ');
-        if (fullName) finalPrompt += `Name: ${fullName}\n`;
-      }
       
       // Basic Demographics & Goals
       if (data.personalData.age) finalPrompt += `Age: ${data.personalData.age} years\n`;
@@ -326,6 +350,46 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
           <Zap className="text-white text-lg" size={20} />
           <h3 className="font-medium text-white text-lg">AI Prompt Builder</h3>
         </div>
+
+        {/* Name Input Section */}
+        <div className="mb-4 bg-purple-500/20 border border-purple-400/30 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-3">
+            <User size={16} className="text-purple-300" />
+            <span className="text-purple-100 font-medium text-sm">Personalization</span>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <input
+                type="text"
+                placeholder="First name"
+                value={firstName}
+                onChange={(e) => handleNameChange(e.target.value, lastName)}
+                className="w-full bg-purple-600/20 border border-purple-400/30 rounded px-2 py-1 text-purple-100 placeholder-purple-300/60 text-xs focus:outline-none focus:border-purple-300 focus:bg-purple-600/30"
+              />
+            </div>
+            <div>
+              <input
+                type="text"
+                placeholder="Last name"
+                value={lastName}
+                onChange={(e) => handleNameChange(firstName, e.target.value)}
+                className="w-full bg-purple-600/20 border border-purple-400/30 rounded px-2 py-1 text-purple-100 placeholder-purple-300/60 text-xs focus:outline-none focus:border-purple-300 focus:bg-purple-600/30"
+              />
+            </div>
+          </div>
+          
+          {/* Show current personalization info */}
+          {(firstName || lastName) && (
+            <div className="flex items-center gap-2 mt-2">
+              <div className="w-2 h-2 bg-purple-300 rounded-full"></div>
+              <span className="text-purple-200 text-xs">
+                Creating content for: {[firstName, lastName].filter(Boolean).join(' ')}
+              </span>
+            </div>
+          )}
+        </div>
+
 
 
         {/* Prompt Sections - Grow with content */}
