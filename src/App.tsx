@@ -5,7 +5,6 @@ import { Switch, Route } from "wouter";
 import dynamic from "next/dynamic";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import PipelineBuilder from "./components/pages/pipeline-builder";
 import OnboardingScreen from "./components/onboarding/onboarding-screen";
 import { Toaster } from "./components/ui/toaster";
 // NotFound component is now handled by App Router in src/app/not-found.tsx
