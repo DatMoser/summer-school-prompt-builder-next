@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Switch, Route } from "wouter";
+import dynamic from "next/dynamic";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import PipelineBuilder from "./components/pages/pipeline-builder";
