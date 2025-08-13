@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Switch, Route } from "wouter";
+import dynamic from "next/dynamic";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import PipelineBuilder from "./components/pages/pipeline-builder";
@@ -10,6 +11,11 @@ import { Toaster } from "./components/ui/toaster";
 // NotFound component is now handled by App Router in src/app/not-found.tsx
 import { TooltipProvider } from "./components/ui/tooltip";
 import BackendClient from "./lib/backend-client";
+
+const PipelineBuilder = dynamic(() => import("./components/pipeline-builder-wrapper"), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center h-screen bg-gray-900 text-white">Loading...</div>
+});
 
 function Router() {
   const [hasValidApiKey, setHasValidApiKey] = useState<boolean | null>(null);
