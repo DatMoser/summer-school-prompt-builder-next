@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Wand2, User, ChevronDown, ChevronUp } from 'lucide-react';
 import { StyleData } from '@/lib/pipeline-types';
+import BackendClient from '@/lib/backend-client';
 
 interface StylePersonalizationModalProps {
   open: boolean;
@@ -15,11 +17,17 @@ interface StylePersonalizationModalProps {
   onDataUpdate: (data: StyleData) => void;
 }
 
-// Empty style template requiring user configuration
-const getEmptyStyle = (): StyleData => ({
-  tone: '',
-  pace: '',
-  vocabulary: '',
+// Default health-focused style template for better time to first podcast
+// Only basic dimensions have defaults, advanced dimensions are left empty for user customization
+const getDefaultStyle = (): StyleData => ({
+  // Basic dimensions with defaults
+  tone: 'Professional yet approachable',
+  pace: 'Moderate, clear and easy to follow',
+  vocabulary: 'Simple medical terms with clear explanations',
+  targetAudience: 'General public interested in health and wellness',
+  contentStructure: 'Clear introduction, main points with examples, actionable takeaways',
+  
+  // Advanced dimensions - left empty
   energy: '',
   formality: '',
   humor: '',
@@ -27,10 +35,9 @@ const getEmptyStyle = (): StyleData => ({
   confidence: '',
   storytelling: '',
   keyPhrases: [],
-  targetAudience: '',
-  contentStructure: '',
-  customPrompt: '',
-  sourceDescription: '',
+  
+  customPrompt: 'Focus on being trustworthy, evidence-based, and practical. Make complex health topics accessible to everyone.',
+  sourceDescription: 'Default health podcast style',
   isAIGenerated: false
 });
 
@@ -41,19 +48,20 @@ export default function StylePersonalizationModal({
   existingData,
   onDataUpdate
 }: StylePersonalizationModalProps) {
-  const [styleData, setStyleData] = useState<StyleData>(existingData || getEmptyStyle());
+  const [styleData, setStyleData] = useState<StyleData>(existingData || getDefaultStyle());
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [keyPhrasesText, setKeyPhrasesText] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<'openai' | 'gemini'>('openai');
 
   // Update local state when existingData changes (when modal opens with saved data)
   useEffect(() => {
     if (existingData) {
       setStyleData(existingData);
     } else {
-      setStyleData(getEmptyStyle());
+      setStyleData(getDefaultStyle());
     }
   }, [existingData]);
 
@@ -85,13 +93,11 @@ export default function StylePersonalizationModal({
     setErrorMessage(null);
 
     try {
-      const response = await fetch('/api/mcp/analyze-style', {
+      const response = await BackendClient.fetch('/api/mcp/analyze-style', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           styleDescription: aiPrompt,
+          provider: selectedProvider,
           type: 'generate-preset'
         })
       });
@@ -175,7 +181,7 @@ export default function StylePersonalizationModal({
 
   const handleCancel = () => {
     onOpenChange(false);
-    setStyleData(existingData || getEmptyStyle());
+    setStyleData(existingData || getDefaultStyle());
     setAiPrompt('');
   };
 
@@ -216,6 +222,20 @@ export default function StylePersonalizationModal({
                   className="bg-gray-700 border-gray-600 text-gray-200 min-h-[80px]"
                   rows={3}
                 />
+              </div>
+              <div>
+                <Label htmlFor="provider-select" className="text-sm font-medium text-gray-300 mb-2 block">
+                  AI Provider
+                </Label>
+                <Select value={selectedProvider} onValueChange={(value: 'openai' | 'gemini') => setSelectedProvider(value)}>
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-gray-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-700 border-gray-600 text-gray-200">
+                    <SelectItem value="openai">GPT-5</SelectItem>
+                    <SelectItem value="gemini">Google Gemini</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <Button
                 onClick={generateAIStyle}

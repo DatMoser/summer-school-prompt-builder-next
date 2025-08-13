@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 interface BackendGenerationRequest {
   mode: 'video' | 'audio';
   prompt: string;
+  provider?: 'openai' | 'gemini';
   generate_thumbnail?: boolean;
   thumbnail_prompt?: string;
   credentials: {
@@ -32,18 +33,22 @@ interface BackendGenerationResponse {
 }
 
 // Environment configuration
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8081';
 
 export async function POST(request: NextRequest) {
   console.log('🎯 GENERATE API POST - REQUEST RECEIVED');
   try {
     const body = await request.json();
+    
+    // Extract API key from request headers
+    const apiKey = request.headers.get('X-API-Key');
     console.log('📝 GENERATE API - REQUEST BODY:', body);
     
     // Extract generation parameters from request
     const {
       format,
       prompt,
+      provider = 'openai', // Default to OpenAI
       evidenceData,
       styleData,
       visualStylingData,
@@ -112,10 +117,12 @@ export async function POST(request: NextRequest) {
     
     // For audio generation, only add credentials if explicitly provided (backend uses env vars)
     if (format === 'audio') {
-      // Only add custom API key if provided
-      const geminiKey = customApiKey || process.env.GEMINI_API_KEY;
-      if (geminiKey && customApiKey) { // Only add if custom key provided, not env var
-        credentials.gemini_api_key = geminiKey;
+      // Only add Gemini API key if provider is gemini and custom key provided
+      if (provider === 'gemini') {
+        const geminiKey = customApiKey || process.env.GEMINI_API_KEY;
+        if (geminiKey && customApiKey) { // Only add if custom key provided, not env var
+          credentials.gemini_api_key = geminiKey;
+        }
       }
       
       // Only add ElevenLabs key if explicitly provided
@@ -128,6 +135,7 @@ export async function POST(request: NextRequest) {
     const backendRequest: any = {
       mode: format,
       prompt: enhancedPrompt,
+      provider: provider, // Include provider parameter
       generate_thumbnail: format === 'audio' && !!visualStylingData?.podcastThumbnail, // Generate thumbnails only when visual styling is connected
     };
 
@@ -185,11 +193,18 @@ export async function POST(request: NextRequest) {
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add X-API-Key header if provided
+      if (apiKey) {
+        headers['X-API-Key'] = apiKey;
+      }
+      
       const backendResponse = await fetch(`${BACKEND_URL}/mcp`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify(backendRequest),
         signal: controller.signal
       });

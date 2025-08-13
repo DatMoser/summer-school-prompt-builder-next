@@ -98,7 +98,7 @@ export default function ComponentSidebar({ collapsed, onToggleCollapse, nodes }:
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             ⚡
           </div>
-          PromptRX
+          PRECIOUS Content Generator
         </h1>
         <p className="text-sm text-gray-400 mt-1">
           Create personalized health content with AI-powered components

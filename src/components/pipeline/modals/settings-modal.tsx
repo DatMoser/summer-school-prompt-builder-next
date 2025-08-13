@@ -182,6 +182,13 @@ export default function SettingsModal({
     }
   };
 
+  const handleChangeApiKey = () => {
+    if (confirm('Are you sure you want to change your backend API key? This will return you to the onboarding screen.')) {
+      localStorage.removeItem('promptrx-backend-api-key');
+      window.location.reload();
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-gray-800 border-gray-600 text-white max-w-md w-[90vw] sm:w-full max-h-[80vh] overflow-y-auto p-4 sm:p-6">
@@ -287,6 +294,20 @@ export default function SettingsModal({
                   Using default Gemini API key. Enable custom key option to use your own.
                 </p>
               )}
+
+              {/* Change Backend API Key Button */}
+              <div className="mt-4 pt-3 border-t border-gray-600">
+                <Button
+                  variant="outline"
+                  onClick={handleChangeApiKey}
+                  className="w-full bg-gray-700 hover:bg-gray-600 border-gray-600 text-gray-300 text-sm"
+                >
+                  🔑 Change Backend API Key
+                </Button>
+                <p className="text-xs text-gray-400 mt-1 text-center">
+                  Return to onboarding to change your backend authentication key
+                </p>
+              </div>
             </div>
           </div>
 

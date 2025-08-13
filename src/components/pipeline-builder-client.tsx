@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Settings, Images, HelpCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import type { EvidenceData, OutputSelectorData, PersonalHealthData, PipelineConnection, PipelineNode, StyleData, VisualStylingData } from "../lib/pipeline-types";
+import BackendClient from "../lib/backend-client";
 import CanvasWorkspace from "./pipeline/canvas-workspace";
 import ComponentSidebar from "./pipeline/component-sidebar";
 import ConfirmationModal from "./pipeline/modals/confirmation-modal";
@@ -459,36 +460,18 @@ export default function PipelineBuilder() {
     setBackendHealthStatus('checking');
     
     try {
-      // Use the Next.js API proxy to avoid CORS issues
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      // Use BackendClient's validateApiKey method which now uses /validate endpoint
+      const isValid = await BackendClient.validateApiKey();
       
-      const response = await fetch('/api/health/backend', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (response.ok) {
-        const healthData = await response.json().catch(() => null);
+      if (isValid) {
         setBackendHealthStatus('healthy');
       } else {
-        console.warn(`Backend health check failed with status: ${response.status} ${response.statusText}`);
+        console.warn('Backend API key validation failed');
         setBackendHealthStatus('unhealthy');
       }
     } catch (error) {
       if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          console.error('Backend health check timed out after 5 seconds');
-        } else if (error.message.includes('fetch')) {
-          console.error('Backend health check failed - connection refused or network error:', error.message);
-        } else {
-          console.error('Backend health check failed:', error.message);
-        }
+        console.error('Backend health check failed:', error.message);
       } else {
         console.error('Backend health check failed with unknown error:', error);
       }
@@ -1212,6 +1195,7 @@ export default function PipelineBuilder() {
         styleData={styleData}
         visualStylingData={visualStylingData}
         personalData={personalData}
+        outputSelectorData={outputSelectorData}
         promptText={promptText}
         customApiKey={customApiKey}
         backendCredentials={backendCredentials}

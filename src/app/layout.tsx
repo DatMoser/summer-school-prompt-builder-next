@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PromptRX - Health Content Generation Platform",
+  title: "PRECIOUS Content Generator - Health Content Generation Platform",
   description: "AI-powered platform for creating personalized health content using evidence-based guidelines and personal health data",
 };
 

@@ -50,6 +50,9 @@ interface PromptNodeData {
     customPrompt?: string;
   };
   personalData?: {
+    firstName?: string;
+    lastName?: string;
+    customInstructions?: string;
     averageDailySteps?: number;
     averageHeartRate?: number;
     age?: number;
@@ -215,6 +218,12 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
     if (connectedComponentsWithIds.some(c => c.type === 'personal-data') && data.personalData) {
       finalPrompt += `PERSONAL HEALTH METRICS:\n`;
       
+      // Personal Information
+      if (data.personalData.firstName || data.personalData.lastName) {
+        const fullName = [data.personalData.firstName, data.personalData.lastName].filter(Boolean).join(' ');
+        if (fullName) finalPrompt += `Name: ${fullName}\n`;
+      }
+      
       // Basic Demographics & Goals
       if (data.personalData.age) finalPrompt += `Age: ${data.personalData.age} years\n`;
       if (data.personalData.biologicalSex) finalPrompt += `Biological Sex: ${data.personalData.biologicalSex}\n`;
@@ -247,6 +256,11 @@ export function PromptNode({ data, selected }: { data: PromptNodeData; selected?
       }
       if (data.personalData.mostActiveTimeOfDay) finalPrompt += `Most Active: ${data.personalData.mostActiveTimeOfDay}\n`;
       if (data.personalData.weeklyActivityConsistency) finalPrompt += `Activity Consistency: ${data.personalData.weeklyActivityConsistency}\n`;
+      
+      // Custom Instructions
+      if (data.personalData.customInstructions) {
+        finalPrompt += `\nCustom Instructions: ${data.personalData.customInstructions}\n`;
+      }
       
       finalPrompt += `\n`;
     }

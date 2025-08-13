@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Environment configuration
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8081';
 
 interface StyleGenerationRequest {
   styleDescription: string;
+  provider?: 'openai' | 'gemini';
   type?: 'generate-preset';
 }
 
@@ -28,9 +29,13 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
+    // Extract API key from request headers
+    const apiKey = request.headers.get('X-API-Key');
+    
     // Extract style description from request
     const {
       styleDescription,
+      provider = 'openai', // Default to OpenAI
       type = 'generate-preset'
     } = body as StyleGenerationRequest;
 
@@ -45,6 +50,7 @@ export async function POST(request: NextRequest) {
     // Build request for backend MCP service
     const backendRequest = {
       prompt: styleDescription,  // Backend expects 'prompt' field
+      provider: provider, // Include provider parameter
       type
     };
 
@@ -55,11 +61,18 @@ export async function POST(request: NextRequest) {
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add X-API-Key header if provided
+      if (apiKey) {
+        headers['X-API-Key'] = apiKey;
+      }
+      
       const backendResponse = await fetch(`${BACKEND_URL}/mcp/analyze-style`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify(backendRequest),
         signal: controller.signal
       });

@@ -13,19 +13,22 @@ interface PersonalDataModalProps {
   onDataUpdate: (data: PersonalHealthData) => void;
 }
 
-// Empty health data template requiring user configuration
-const getEmptyHealthData = (): PersonalHealthData => ({
-  age: 0,
-  biologicalSex: '',
-  heightCm: undefined,
-  weightKg: undefined,
-  fitnessGoals: '',
-  averageDailySteps: 0,
+// Default health data template with reasonable defaults for better time to first podcast
+const getDefaultHealthData = (): PersonalHealthData => ({
+  firstName: 'John',
+  lastName: 'Doe',
+  customInstructions: 'Focus on practical, actionable health advice that I can implement in my daily routine.',
+  age: 35,
+  biologicalSex: 'Male',
+  heightCm: 175,
+  weightKg: 70,
+  fitnessGoals: 'Stay healthy and active, maintain good cardiovascular health',
+  averageDailySteps: 8000,
   averageHeartRate: undefined,
-  sleepHoursPerNight: undefined,
-  activeEnergyBurned: undefined,
-  exerciseMinutesPerWeek: undefined,
-  restingHeartRate: undefined,
+  sleepHoursPerNight: 7.5,
+  activeEnergyBurned: 400,
+  exerciseMinutesPerWeek: 150,
+  restingHeartRate: 65,
   vo2Max: undefined,
   walkingHeartRateAverage: undefined,
   heartRateVariability: undefined,
@@ -33,16 +36,16 @@ const getEmptyHealthData = (): PersonalHealthData => ({
   bloodPressureDiastolic: undefined,
   bodyMassIndex: undefined,
   bloodGlucose: undefined,
-  waterIntakeLiters: undefined,
-  workoutTypes: [],
-  mostActiveTimeOfDay: '',
-  weeklyActivityConsistency: '',
+  waterIntakeLiters: 2.5,
+  workoutTypes: ['Walking', 'Gym workouts', 'Cycling'],
+  mostActiveTimeOfDay: 'Morning',
+  weeklyActivityConsistency: 'Medium',
   sourceDescription: 'Manual Entry',
   lastSyncDate: new Date().toISOString()
 });
 
 export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: PersonalDataModalProps) {
-  const [healthData, setHealthData] = useState<PersonalHealthData>(getEmptyHealthData());
+  const [healthData, setHealthData] = useState<PersonalHealthData>(getDefaultHealthData());
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [workoutTypesText, setWorkoutTypesText] = useState('');
 
@@ -70,7 +73,7 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
 
   const handleCancel = () => {
     onOpenChange(false);
-    setHealthData(getEmptyHealthData());
+    setHealthData(getDefaultHealthData());
     setWorkoutTypesText('');
   };
 
@@ -92,6 +95,62 @@ export default function PersonalDataModal({ open, onOpenChange, onDataUpdate }: 
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Personal Information */}
+          <div className="space-y-4">
+            <h3 className="text-blue-300 font-medium">Personal Information</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="firstName" className="text-sm font-medium text-gray-300 mb-2 block">
+                  First Name (Optional)
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={16} />
+                  <Input
+                    id="firstName"
+                    value={healthData.firstName || ''}
+                    onChange={(e) => handleFieldChange('firstName', e.target.value)}
+                    className="bg-gray-700 border-gray-600 text-gray-200 pl-10"
+                    placeholder="e.g., John"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="lastName" className="text-sm font-medium text-gray-300 mb-2 block">
+                  Last Name (Optional)
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={16} />
+                  <Input
+                    id="lastName"
+                    value={healthData.lastName || ''}
+                    onChange={(e) => handleFieldChange('lastName', e.target.value)}
+                    className="bg-gray-700 border-gray-600 text-gray-200 pl-10"
+                    placeholder="e.g., Doe"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="customInstructions" className="text-sm font-medium text-gray-300 mb-2 block">
+                Custom Instructions (Optional)
+              </Label>
+              <Textarea
+                id="customInstructions"
+                value={healthData.customInstructions || ''}
+                onChange={(e) => handleFieldChange('customInstructions', e.target.value)}
+                placeholder="e.g., Focus on practical advice that fits my busy lifestyle, prefer natural remedies when possible"
+                className="bg-gray-700 border-gray-600 text-gray-200 min-h-[80px]"
+                rows={3}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Additional instructions for how you'd like your health content personalized
+              </p>
+            </div>
+          </div>
+
           {/* Basic Demographics & Core Metrics */}
           <div className="space-y-4">
             <h3 className="text-blue-300 font-medium">Basic Profile & Activity</h3>

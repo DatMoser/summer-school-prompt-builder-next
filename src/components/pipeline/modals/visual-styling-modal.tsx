@@ -14,28 +14,28 @@ interface VisualStylingModalProps {
   existingData?: VisualStylingData | null;
 }
 
-// Empty visual styling template requiring user configuration
-const getEmptyVisualStyling = (): VisualStylingData => ({
+// Default visual styling with health-focused podcast defaults for better time to first podcast
+const getDefaultVisualStyling = (): VisualStylingData => ({
   videoStyle: {
-    colorScheme: '',
-    visualTheme: '',
-    fontStyle: '',
-    layoutStyle: '',
-    backgroundStyle: '',
-    animationLevel: ''
+    colorScheme: 'warm',
+    visualTheme: 'professional',
+    fontStyle: 'clean',
+    layoutStyle: 'dynamic',
+    backgroundStyle: 'gradient',
+    animationLevel: 'moderate'
   },
   podcastThumbnail: {
-    colorScheme: '',
-    designTheme: '',
-    fontStyle: '',
-    layoutType: '',
-    backgroundStyle: '',
-    iconStyle: ''
+    colorScheme: 'warm',
+    designTheme: 'professional',
+    fontStyle: 'clean',
+    layoutType: 'balanced',
+    backgroundStyle: 'gradient',
+    iconStyle: 'medical'
   },
-  healthFocus: '',
-  targetDemographic: '',
-  customPrompt: '',
-  sourceDescription: 'Manual configuration',
+  healthFocus: 'general',
+  targetDemographic: 'general',
+  customPrompt: 'Create trustworthy, approachable visuals that convey health expertise while being accessible to everyone.',
+  sourceDescription: 'Default health podcast styling',
   lastModified: new Date().toISOString()
 });
 
@@ -45,14 +45,14 @@ export default function VisualStylingModal({
   onDataUpdate,
   existingData
 }: VisualStylingModalProps) {
-  const [visualData, setVisualData] = useState<VisualStylingData>(getEmptyVisualStyling());
+  const [visualData, setVisualData] = useState<VisualStylingData>(getDefaultVisualStyling());
 
   // Restore existing data when modal opens
   useEffect(() => {
     if (open && existingData) {
       setVisualData(existingData);
     } else if (open) {
-      setVisualData(getEmptyVisualStyling());
+      setVisualData(getDefaultVisualStyling());
     }
   }, [open, existingData]);
 
@@ -113,7 +113,7 @@ export default function VisualStylingModal({
   const handleCancel = () => {
     onOpenChange(false);
     if (!existingData) {
-      setVisualData(getEmptyVisualStyling());
+      setVisualData(getDefaultVisualStyling());
     }
   };
 

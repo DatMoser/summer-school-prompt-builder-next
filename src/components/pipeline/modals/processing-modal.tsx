@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import BackendClient from '../../../lib/backend-client';
 import {
   Loader2,
   CheckCircle,
@@ -26,6 +27,7 @@ interface ProcessingModalProps {
   styleData?: any;
   visualStylingData?: any;
   personalData?: any;
+  outputSelectorData?: any;
   promptText?: string;
   generatedPrompt?: string;
   customApiKey?: string | null;
@@ -57,6 +59,7 @@ export default function ProcessingModal({
   styleData,
   visualStylingData,
   personalData,
+  outputSelectorData,
   promptText,
   generatedPrompt,
   customApiKey,
@@ -114,13 +117,13 @@ export default function ProcessingModal({
           hasCustomApiKey: !!customApiKey
         });
 
-        // Start generation
-        const response = await fetch('/api/generate', {
+        // Start generation using BackendClient for authentication
+        const response = await BackendClient.fetch('/api/generate', {
           method: 'POST',
-          headers,
           body: JSON.stringify({
             format,
             prompt: finalPrompt,
+            provider: outputSelectorData?.provider, // Include provider parameter
             evidenceData,
             styleData,
             visualStylingData,
@@ -146,7 +149,7 @@ export default function ProcessingModal({
         try {
           const savedHistory = localStorage.getItem('pipeline-builder-generation-history');
           const history = savedHistory ? JSON.parse(savedHistory) : [];
-          
+
           const newItem = {
             id: newJobId,
             title: `Generating ${format === 'video' ? 'Video' : 'Podcast'} Content`,
@@ -171,7 +174,7 @@ export default function ProcessingModal({
               hasMetrics: !!(personalData.metrics && Object.keys(personalData.metrics).length > 0)
             } : null
           };
-          
+
           history.unshift(newItem);
           localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
         } catch (error) {
@@ -183,11 +186,11 @@ export default function ProcessingModal({
         const websocketUrl = `ws://${backendUrl.replace('http://', '').replace('https://', '')}/ws/${newJobId}`;
         try {
           websocket = new WebSocket(websocketUrl);
-          
+
           websocket.onopen = () => {
             websocketConnected = true;
           };
-          
+
           websocket.onmessage = (event) => {
             try {
               const progressData = JSON.parse(event.data);
@@ -196,19 +199,19 @@ export default function ProcessingModal({
               console.error('Failed to parse WebSocket message:', error);
             }
           };
-          
+
           websocket.onerror = (error) => {
             console.warn('WebSocket error, falling back to polling:', error);
             websocketConnected = false;
           };
-          
+
           websocket.onclose = () => {
             websocketConnected = false;
           };
         } catch (error) {
           console.warn('WebSocket not available, using polling:', error);
         }
-        
+
         // Fallback to polling if WebSocket fails or for backup
         let stepIndex = 0;
         pollInterval = setInterval(async () => {
@@ -217,14 +220,14 @@ export default function ProcessingModal({
             return;
           }
           try {
-            const statusResponse = await fetch(`/api/generate/${newJobId}`);
+            const statusResponse = await BackendClient.fetch(`/api/generate/${newJobId}`);
 
             if (!statusResponse.ok) {
               throw new Error('Failed to check generation status');
             }
 
             const statusData = await statusResponse.json();
-            
+
             handleProgressUpdate(statusData, newJobId);
 
 
@@ -325,9 +328,9 @@ export default function ProcessingModal({
       }
 
       console.log('🔍 ProcessingModal - Status Check:', statusData.status);
-      
+
       if (statusData.status === 'finished') {
-        console.log('🎉 ProcessingModal - Status is FINISHED, processing completion...');
+        console.log('🎉 ProcessingModal - Status is FINISHED, processing completion...', statusData);
         if (pollInterval) clearInterval(pollInterval);
         if (websocket) websocket.close();
 
@@ -346,7 +349,7 @@ export default function ProcessingModal({
           duration: statusData.duration || (format === 'video' ? 8 : 180),
           fileSize: statusData.fileSize || statusData.file_size || (format === 'video' ? 25600000 : 5120000)
         };
-        
+
         console.log('✅ Processing Modal - Generation Complete - FINAL RESULT OBJECT:', {
           jobId,
           result,
@@ -357,7 +360,7 @@ export default function ProcessingModal({
           hasDownloadUrl: !!result.downloadUrl,
           hasThumbnailUrl: !!result.thumbnailUrl
         });
-        
+
         setResult(result);
 
         // Update gallery item with final result
@@ -378,7 +381,7 @@ export default function ProcessingModal({
                 currentStep: 'Completed',
                 lastUpdated: new Date().toISOString()
               };
-              
+
               console.log('💾 Processing Modal - Saving to localStorage:', {
                 jobId,
                 originalThumbnailUrl: statusData.thumbnailUrl,
@@ -386,7 +389,7 @@ export default function ProcessingModal({
                 savedThumbnailUrl: updatedItem.thumbnailUrl,
                 updatedItem
               });
-              
+
               history[itemIndex] = updatedItem;
               localStorage.setItem('pipeline-builder-generation-history', JSON.stringify(history));
             }
@@ -399,7 +402,7 @@ export default function ProcessingModal({
         console.log('❌ ProcessingModal - Status is FAILED');
         if (pollInterval) clearInterval(pollInterval);
         if (websocket) websocket.close();
-        
+
         setProgressInfo({
           progress: statusData.progress || 0,
           currentStep: 'Failed',
@@ -552,25 +555,23 @@ export default function ProcessingModal({
           {/* Current Processing Step */}
           <div className="space-y-4">
             <div
-              className={`flex items-start gap-4 p-4 rounded-lg border transition-all duration-300 ${
-                progressInfo.status === 'started'
+              className={`flex items-start gap-4 p-4 rounded-lg border transition-all duration-300 ${progressInfo.status === 'started'
                   ? 'bg-blue-500/10 border-blue-400/30'
                   : progressInfo.status === 'finished'
                     ? 'bg-emerald-500/10 border-emerald-400/30'
                     : progressInfo.status === 'failed'
                       ? 'bg-red-500/10 border-red-400/30'
                       : 'bg-gray-800/30 border-gray-700/30'
-              }`}
+                }`}
             >
-              <div className={`flex-shrink-0 p-2 rounded-lg ${
-                progressInfo.status === 'started'
+              <div className={`flex-shrink-0 p-2 rounded-lg ${progressInfo.status === 'started'
                   ? 'bg-blue-500/20'
                   : progressInfo.status === 'finished'
                     ? 'bg-emerald-500/20'
                     : progressInfo.status === 'failed'
                       ? 'bg-red-500/20'
                       : 'bg-gray-700/30'
-              }`}>
+                }`}>
                 {progressInfo.status === 'started' ? (
                   <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
                 ) : progressInfo.status === 'finished' ? (
@@ -583,15 +584,14 @@ export default function ProcessingModal({
               </div>
 
               <div className="flex-1 min-w-0">
-                <h4 className={`font-medium text-sm ${
-                  progressInfo.status === 'started'
+                <h4 className={`font-medium text-sm ${progressInfo.status === 'started'
                     ? 'text-blue-400'
                     : progressInfo.status === 'finished'
                       ? 'text-emerald-400'
                       : progressInfo.status === 'failed'
                         ? 'text-red-400'
                         : 'text-gray-400'
-                }`}>
+                  }`}>
                   {progressInfo.currentStep}
                 </h4>
                 {progressInfo.message && (

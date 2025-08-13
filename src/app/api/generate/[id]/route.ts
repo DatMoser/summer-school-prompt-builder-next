@@ -16,7 +16,7 @@ interface BackendStatusResponse {
 }
 
 // Environment configuration
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8081';
 
 export async function GET(
   request: NextRequest,
@@ -24,6 +24,9 @@ export async function GET(
 ) {
   try {
     const { id: jobId } = await params;
+    
+    // Extract API key from request headers
+    const apiKey = request.headers.get('X-API-Key');
     const { searchParams } = new URL(request.url);
     const usePolling = searchParams.get('wait') === 'true';
 
@@ -43,11 +46,18 @@ export async function GET(
     
     let backendResponse: Response;
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add X-API-Key header if provided
+      if (apiKey) {
+        headers['X-API-Key'] = apiKey;
+      }
+      
       backendResponse = await fetch(`${BACKEND_URL}${endpoint}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         signal: controller.signal
       });
 
@@ -183,6 +193,9 @@ export async function DELETE(
 ) {
   try {
     const { id: jobId } = await params;
+    
+    // Extract API key from request headers
+    const apiKey = request.headers.get('X-API-Key');
 
     if (!jobId) {
       return NextResponse.json(
@@ -193,11 +206,18 @@ export async function DELETE(
 
     // Note: This endpoint may not exist in the backend service yet
     // This is a placeholder for future cancellation functionality
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    
+    // Add X-API-Key header if provided
+    if (apiKey) {
+      headers['X-API-Key'] = apiKey;
+    }
+    
     const backendResponse = await fetch(`${BACKEND_URL}/mcp/${jobId}/cancel`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers
     });
 
     if (!backendResponse.ok) {
