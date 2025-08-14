@@ -1,4 +1,4 @@
-# PromptRx - AI-Powered Content Pipeline Builder
+# PRECIOUS Content Generator App - AI-Powered Content Pipeline Builder
 
 A sophisticated visual pipeline builder for creating personalized health and wellness content using AI. Build custom content generation workflows with drag-and-drop components, style personalization, and multi-format output support.
 
