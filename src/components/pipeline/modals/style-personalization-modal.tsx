@@ -26,7 +26,7 @@ const getDefaultStyle = (): StyleData => ({
   vocabulary: 'Simple medical terms with clear explanations',
   targetAudience: 'General public interested in health and wellness',
   contentStructure: 'Clear introduction, main points with examples, actionable takeaways',
-  
+
   // Advanced dimensions - left empty
   energy: '',
   formality: '',
@@ -35,7 +35,7 @@ const getDefaultStyle = (): StyleData => ({
   confidence: '',
   storytelling: '',
   keyPhrases: [],
-  
+
   customPrompt: 'Focus on being trustworthy, evidence-based, and practical. Make complex health topics accessible to everyone.',
   sourceDescription: 'Default health podcast style',
   isAIGenerated: false
@@ -232,7 +232,7 @@ export default function StylePersonalizationModal({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-700 border-gray-600 text-gray-200">
-                    <SelectItem value="openai">GPT-5</SelectItem>
+                    <SelectItem value="openai">OpenAI (Auto Model)</SelectItem>
                     <SelectItem value="gemini">Google Gemini</SelectItem>
                   </SelectContent>
                 </Select>

@@ -208,14 +208,14 @@ export default function OutputSelectorModal({ open, onOpenChange, onDataUpdate, 
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-700 border-gray-600 text-gray-200">
-                    <SelectItem value="openai">GPT-5 - Default</SelectItem>
-                    <SelectItem value="gemini">Google Gemini - Requires API Key</SelectItem>
+                    <SelectItem value="openai">OpenAI - Default</SelectItem>
+                    <SelectItem value="gemini">Google Gemini - Built-in</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-400 mt-1">
                   {selectedProvider === 'openai' 
                     ? 'Uses built-in OpenAI integration (no configuration required)'
-                    : 'Requires Gemini API key configured in Settings'
+                    : 'Uses built-in Gemini integration (no configuration required)'
                   }
                 </p>
               </div>
