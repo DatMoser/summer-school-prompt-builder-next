@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Upload, Youtube, Palette, Paintbrush, User, Play, Zap, Stethoscope } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Upload, Palette, Paintbrush, User, Play, Zap, Stethoscope } from 'lucide-react';
 import { PipelineNode } from '@/lib/pipeline-types';
 
 interface ComponentSidebarProps {

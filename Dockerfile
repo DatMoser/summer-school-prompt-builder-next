@@ -10,6 +10,7 @@ RUN npm ci
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SKIP_VALIDATION=true
+ENV DOCKER_BUILD=true
 RUN npm run build
 
 FROM node:20-alpine AS runner

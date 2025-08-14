@@ -31,16 +31,21 @@ export interface EvidenceData {
 }
 
 export interface StyleData {
-  youtubeUrl: string;
-  startTime?: string;
-  endTime?: string;
-  transcript: string;
-  extractedStyle: {
-    tone: string;
-    pace: string;
-    vocabulary: string;
-    keyPhrases: string[];
-  };
+  tone: string;
+  pace: string;
+  vocabulary: string;
+  energy: string;
+  formality: string;
+  humor: string;
+  empathy: string;
+  confidence: string;
+  storytelling: string;
+  keyPhrases: string[];
+  targetAudience: string;
+  contentStructure: string;
+  customPrompt: string;
+  sourceDescription: string;
+  isAIGenerated: boolean;
 }
 
 export interface PersonalHealthData {

@@ -18,26 +18,24 @@ export async function analyzeEvidenceDocument(content: string): Promise<{
   };
 }
 
-export async function extractYouTubeStyle(url: string): Promise<{
-  transcript: string;
-  extractedStyle: {
-    tone: string;
-    pace: string;
-    vocabulary: string;
-    keyPhrases: string[];
-  };
+export async function generateStyleFromDescription(description: string): Promise<{
+  tone: string;
+  pace: string;
+  vocabulary: string;
+  keyPhrases: string[];
+  targetAudience: string;
+  contentStructure: string;
 }> {
   // Simulate processing delay
   await new Promise(resolve => setTimeout(resolve, 2000));
   
   return {
-    transcript: "Mock transcript content would be extracted here using YouTube API or transcript services...",
-    extractedStyle: {
-      tone: "Conversational, encouraging",
-      pace: "Moderate, thoughtful", 
-      vocabulary: "Accessible, non-technical",
-      keyPhrases: ["Let's explore", "You might find", "Consider this", "It's important to remember"]
-    }
+    tone: "Conversational, encouraging",
+    pace: "Moderate, thoughtful", 
+    vocabulary: "Accessible, non-technical",
+    keyPhrases: ["Let's explore", "You might find", "Consider this", "It's important to remember"],
+    targetAudience: "General health-conscious individuals",
+    contentStructure: "Introduction, main points, actionable takeaways"
   };
 }
 

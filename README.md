@@ -10,7 +10,7 @@ A sophisticated visual pipeline builder for creating personalized health and wel
 - **Real-time Updates**: Live preview and modification of your content generation pipeline
 
 ### Content Personalization
-- **Style Analysis**: AI-powered analysis of writing styles from uploaded documents or YouTube videos
+- **Style Analysis**: AI-powered analysis of writing styles from uploaded documents or manual style configuration
 - **Personal Health Integration**: Incorporate personal health data (Apple Health compatible) for tailored content
 - **Visual Customization**: Comprehensive styling options for videos and podcast thumbnails
 - **Evidence-Based Content**: Upload documents (PDF, text) to ground content in evidence
@@ -21,7 +21,7 @@ A sophisticated visual pipeline builder for creating personalized health and wel
 - **AI Provider Choice**: Support for OpenAI and Google Gemini models
 
 ### Advanced Features
-- **YouTube Integration**: Analyze YouTube videos for style extraction and transcription
+- **Manual Style Input**: Configure communication styles through detailed prompts and parameters
 - **Document Processing**: PDF parsing and content extraction capabilities
 - **Authentication System**: Secure API key management with NextAuth
 - **Gallery System**: Organize and manage generated content
@@ -41,8 +41,7 @@ A sophisticated visual pipeline builder for creating personalized health and wel
 
 ### Backend & Integration
 - **Next.js API Routes** - Serverless backend functions
-- **NextAuth** - Authentication and OAuth
-- **Google APIs** - YouTube integration and Gemini AI
+- **Google Gemini AI** - AI-powered content generation and analysis
 - **PDF.js** - Document processing
 - **React Query** - State management and caching
 
@@ -60,7 +59,7 @@ src/
 │   ├── api/               # API routes
 │   │   ├── generate/      # Content generation endpoints
 │   │   ├── gallery/       # Content management
-│   │   ├── transcribe/    # YouTube transcription
+│   │   ├── analyze-style/ # Style analysis and generation
 │   │   └── auth/          # Authentication
 │   └── pipeline-builder/  # Main application page
 ├── components/
@@ -141,11 +140,8 @@ BACKEND_URL=http://localhost:3000
 # AI Services (configured on backend)
 # GEMINI_API_KEY - Handled by backend service, not needed in frontend
 
-# Authentication (for YouTube features)
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your_nextauth_secret
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+# AI Configuration
+# GEMINI_API_KEY=your_gemini_api_key  # Optional, can be provided in UI
 
 # Optional: Google Cloud (fallback services)
 GOOGLE_CLOUD_PROJECT=your_project_id
@@ -178,7 +174,7 @@ See [SETUP.md](SETUP.md) for detailed environment configuration and deployment i
 
 1. **Start with Evidence Input**
    - Upload PDFs or documents to ground your content
-   - Add YouTube videos for style analysis
+   - Configure communication styles manually or with AI assistance
 
 2. **Configure Style Personalization**
    - Upload sample content to analyze writing style

@@ -85,11 +85,12 @@ npm run start:prod
 - `NEXT_PUBLIC_BACKEND_URL` - Public backend service URL for client-side requests
 - `BACKEND_URL` - Server-side backend service URL for API routes
 
-### Authentication (Required for YouTube integration)
-- `NEXTAUTH_URL` - NextAuth URL for OAuth callbacks
-- `NEXTAUTH_SECRET` - Secret key for NextAuth JWT signing
-- `GOOGLE_CLIENT_ID` - Google OAuth client ID for YouTube API access
-- `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
+### Authentication (Legacy - currently unused)
+# These were previously used for YouTube integration (now removed)
+# - `NEXTAUTH_URL` - NextAuth URL for OAuth callbacks
+# - `NEXTAUTH_SECRET` - Secret key for NextAuth JWT signing
+# - `GOOGLE_CLIENT_ID` - Google OAuth client ID
+# - `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
 
 ### Google Cloud Services (Optional fallbacks)
 - `GOOGLE_CLOUD_PROJECT` - GCP project ID (fallback for backend service)
