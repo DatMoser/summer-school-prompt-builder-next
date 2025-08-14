@@ -85,12 +85,12 @@ export async function POST(request: NextRequest) {
     
     // For video generation, we need credentials
     if (format === 'video') {
-      const geminiKey = customApiKey || process.env.GEMINI_API_KEY;
+      const geminiKey = customApiKey;
       if (!geminiKey) {
         return NextResponse.json(
           { 
             success: false, 
-            error: 'Gemini API key is required for video generation. Please provide it in Settings or set GEMINI_API_KEY environment variable.' 
+            error: 'Gemini API key is required for video generation. Please provide it in Settings.' 
           },
           { status: 400 }
         );
@@ -119,8 +119,8 @@ export async function POST(request: NextRequest) {
     if (format === 'audio') {
       // Only add Gemini API key if provider is gemini and custom key provided
       if (provider === 'gemini') {
-        const geminiKey = customApiKey || process.env.GEMINI_API_KEY;
-        if (geminiKey && customApiKey) { // Only add if custom key provided, not env var
+        const geminiKey = customApiKey;
+        if (geminiKey) {
           credentials.gemini_api_key = geminiKey;
         }
       }

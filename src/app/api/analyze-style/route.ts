@@ -60,12 +60,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get API key from request header or environment
-    const apiKey = customApiKey || request.headers.get('x-gemini-api-key') || process.env.GEMINI_API_KEY;
+    // Get API key from request (frontend should provide API key)
+    const apiKey = customApiKey || request.headers.get('x-gemini-api-key');
     
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Gemini API key is required. Please provide it in the request or set GEMINI_API_KEY environment variable.' },
+        { error: 'Gemini API key is required. Please provide it in the request headers or body.' },
         { status: 400 }
       );
     }

@@ -138,8 +138,8 @@ NODE_ENV=development
 NEXT_PUBLIC_BACKEND_URL=http://localhost:3000
 BACKEND_URL=http://localhost:3000
 
-# AI Services
-GEMINI_API_KEY=your_gemini_api_key
+# AI Services (configured on backend)
+# GEMINI_API_KEY - Handled by backend service, not needed in frontend
 
 # Authentication (for YouTube features)
 NEXTAUTH_URL=http://localhost:3000

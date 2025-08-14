@@ -97,7 +97,7 @@ npm run start:prod
 - `VERTEX_AI_REGION` - Vertex AI region (fallback, defaults to us-central1)
 
 ### API Keys (Required)
-- `GEMINI_API_KEY` - Google Gemini API key for content generation
+- `GEMINI_API_KEY` - Google Gemini API key (configured on backend service, not frontend)
 
 ### Build Settings
 - `NEXT_TELEMETRY_DISABLED` - Disable Next.js telemetry (set to 1)
